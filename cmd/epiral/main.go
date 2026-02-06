@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/epiral/cli/internal/daemon"
 )
@@ -61,9 +62,31 @@ func main() {
 
 	d := daemon.New(&cfg)
 	log.Printf("Epiral CLI 启动: id=%s, agent=%s", cfg.ComputerID, cfg.AgentAddr)
-	if err := d.Run(ctx); err != nil {
-		cancel()
-		log.Fatalf("Daemon 退出: %v", err)
+
+	// 自动重连循环
+	for {
+		if ctx.Err() != nil {
+			break
+		}
+
+		err := d.Run(ctx)
+		if err == nil {
+			// 正常退出（如 ctx 被 cancel）
+			break
+		}
+
+		if ctx.Err() != nil {
+			break
+		}
+
+		log.Printf("连接断开: %v", err)
+		log.Println("3 秒后尝试重连...")
+		select {
+		case <-ctx.Done():
+			break
+		case <-time.After(3 * time.Second):
+			// 继续重连
+		}
 	}
 	cancel()
 }
