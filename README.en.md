@@ -221,4 +221,4 @@ make clean      # Remove build artifacts
 
 ## License
 
-[MIT](LICENSE)
+[BSL 1.1](LICENSE)
