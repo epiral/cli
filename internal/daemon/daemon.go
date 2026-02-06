@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"connectrpc.com/connect"
@@ -35,6 +36,7 @@ type Config struct {
 type Daemon struct {
 	config Config
 	stream *connect.BidiStreamForClient[v1.ConnectRequest, v1.ConnectResponse]
+	sendMu sync.Mutex // 保护 stream.Send 的并发安全
 }
 
 // New 创建一个新的 Daemon
@@ -46,13 +48,16 @@ func New(cfg *Config) *Daemon {
 func (d *Daemon) Run(ctx context.Context) error {
 	log.Printf("连接 Agent: %s", d.config.AgentAddr)
 
-	// 创建 HTTP/2 client（h2c，支持 bidi streaming）
+	// 创建 HTTP/2 client（h2c，支持 bidi streaming 长连接）
 	h2cClient := &http.Client{
 		Transport: &http2.Transport{
 			AllowHTTP: true,
 			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
 				return net.Dial(network, addr)
 			},
+			// 长连接保活：15 秒无数据则发 HTTP/2 PING
+			ReadIdleTimeout: 15 * time.Second,
+			PingTimeout:     5 * time.Second,
 		},
 	}
 	client := epiralv1connect.NewComputerHubServiceClient(
@@ -105,9 +110,10 @@ func (d *Daemon) handleMessage(ctx context.Context, msg *v1.ConnectResponse) {
 	}
 }
 
-// send 发送上行消息（stream.Send 本身不是并发安全的，需要串行化）
-// TODO: P1 加 channel 串行化
+// send 发送上行消息（stream.Send 不是并发安全的，用 mutex 串行化）
 func (d *Daemon) send(msg *v1.ConnectRequest) error {
+	d.sendMu.Lock()
+	defer d.sendMu.Unlock()
 	return d.stream.Send(msg)
 }
 
