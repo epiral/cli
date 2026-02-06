@@ -3,7 +3,7 @@ syntax = "proto3";
 package epiral.v1;
 
 // Agent 侧 gRPC Server — CLI 连上来建立双向命令通道
-service ComputerHubService {
+service HubService {
   rpc Connect(stream ConnectRequest) returns (stream ConnectResponse);
 }
 
@@ -13,18 +13,24 @@ message ConnectRequest {
   string request_id = 1;
 
   oneof payload {
+    // Computer
     Registration registration = 10;
     ExecOutput   exec_output  = 11;
     FileContent  file_content = 12;
     OpResult     op_result    = 13;
     Ping         ping         = 14;
+    // Browser
+    BrowserRegistration browser_registration = 15;
+    BrowserExecOutput   browser_exec_output  = 16;
   }
 }
 
-// 首次连接：我是谁
+// ==================== Computer 注册 ====================
+
+// 首次连接：我是谁（电脑）
 message Registration {
-  string computer_id              = 1;  // "my-pc"
-  string display_name             = 2;  // "My-PC Mac Studio"
+  string computer_id              = 1;  // --computer-id "my-pc"
+  string description              = 2;  // --computer-desc "Mac Studio M2 Ultra"
   string os                       = 3;  // "darwin" | "linux"
   string arch                     = 4;  // "arm64" | "amd64"
   string shell                    = 5;  // "/bin/zsh"
@@ -33,6 +39,17 @@ message Registration {
   repeated string allowed_paths   = 8;  // ["/Users/xx/workspace", "/tmp"]
   string token                    = 9;  // 认证 token
 }
+
+// ==================== Browser 注册 ====================
+
+// 浏览器上线/下线通知
+message BrowserRegistration {
+  string browser_id  = 1;  // --browser-id "my-chrome"
+  string description = 2;  // --browser-desc "My-PC 上的 Chrome"
+  bool   online      = 3;  // true=插件已连接 SSE, false=插件断开
+}
+
+// ==================== Computer 上行响应 ====================
 
 // 命令执行输出（流式：多条消息，done=true 结束）
 message ExecOutput {
@@ -57,7 +74,22 @@ message OpResult {
   string error   = 2;
 }
 
+// ==================== Browser 上行响应 ====================
+
+// 浏览器命令执行结果
+message BrowserExecOutput {
+  string result_json = 1;  // 插件回传的 Response JSON（bb-browser 协议）
+  string error       = 2;  // daemon 级别的错误（插件未连接/超时等）
+  bool   done        = 3;
+}
+
+// ==================== 心跳 ====================
+
 message Ping {
+  int64 timestamp = 1;
+}
+
+message Pong {
   int64 timestamp = 1;
 }
 
@@ -67,13 +99,18 @@ message ConnectResponse {
   string request_id = 1;
 
   oneof payload {
+    // Computer
     ExecRequest      exec       = 10;
     ReadFileRequest  read_file  = 11;
     WriteFileRequest write_file = 12;
     EditFileRequest  edit_file  = 13;
     Pong             pong       = 14;
+    // Browser
+    BrowserExecRequest browser_exec = 15;
   }
 }
+
+// ==================== Computer 下行命令 ====================
 
 // 执行命令
 message ExecRequest {
@@ -105,6 +142,10 @@ message EditFileRequest {
   bool   replace_all = 4;
 }
 
-message Pong {
-  int64 timestamp = 1;
+// ==================== Browser 下行命令 ====================
+
+// 浏览器命令（转发给插件执行）
+message BrowserExecRequest {
+  string command_json = 1;  // 结构化命令 JSON（bb-browser Request 协议）
+  int32  timeout_ms   = 2;  // 超时毫秒（0 = 默认 30000）
 }

@@ -22,8 +22,8 @@ import (
 const _ = connect.IsAtLeastVersion1_13_0
 
 const (
-	// ComputerHubServiceName is the fully-qualified name of the ComputerHubService service.
-	ComputerHubServiceName = "epiral.v1.ComputerHubService"
+	// HubServiceName is the fully-qualified name of the HubService service.
+	HubServiceName = "epiral.v1.HubService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -34,77 +34,76 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// ComputerHubServiceConnectProcedure is the fully-qualified name of the ComputerHubService's
-	// Connect RPC.
-	ComputerHubServiceConnectProcedure = "/epiral.v1.ComputerHubService/Connect"
+	// HubServiceConnectProcedure is the fully-qualified name of the HubService's Connect RPC.
+	HubServiceConnectProcedure = "/epiral.v1.HubService/Connect"
 )
 
-// ComputerHubServiceClient is a client for the epiral.v1.ComputerHubService service.
-type ComputerHubServiceClient interface {
+// HubServiceClient is a client for the epiral.v1.HubService service.
+type HubServiceClient interface {
 	Connect(context.Context) *connect.BidiStreamForClient[v1.ConnectRequest, v1.ConnectResponse]
 }
 
-// NewComputerHubServiceClient constructs a client for the epiral.v1.ComputerHubService service. By
-// default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses,
-// and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
-// connect.WithGRPC() or connect.WithGRPCWeb() options.
+// NewHubServiceClient constructs a client for the epiral.v1.HubService service. By default, it uses
+// the Connect protocol with the binary Protobuf Codec, asks for gzipped responses, and sends
+// uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the connect.WithGRPC() or
+// connect.WithGRPCWeb() options.
 //
 // The URL supplied here should be the base URL for the Connect or gRPC server (for example,
 // http://api.acme.com or https://acme.com/grpc).
-func NewComputerHubServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) ComputerHubServiceClient {
+func NewHubServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) HubServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	computerHubServiceMethods := v1.File_epiral_v1_epiral_proto.Services().ByName("ComputerHubService").Methods()
-	return &computerHubServiceClient{
+	hubServiceMethods := v1.File_epiral_v1_epiral_proto.Services().ByName("HubService").Methods()
+	return &hubServiceClient{
 		connect: connect.NewClient[v1.ConnectRequest, v1.ConnectResponse](
 			httpClient,
-			baseURL+ComputerHubServiceConnectProcedure,
-			connect.WithSchema(computerHubServiceMethods.ByName("Connect")),
+			baseURL+HubServiceConnectProcedure,
+			connect.WithSchema(hubServiceMethods.ByName("Connect")),
 			connect.WithClientOptions(opts...),
 		),
 	}
 }
 
-// computerHubServiceClient implements ComputerHubServiceClient.
-type computerHubServiceClient struct {
+// hubServiceClient implements HubServiceClient.
+type hubServiceClient struct {
 	connect *connect.Client[v1.ConnectRequest, v1.ConnectResponse]
 }
 
-// Connect calls epiral.v1.ComputerHubService.Connect.
-func (c *computerHubServiceClient) Connect(ctx context.Context) *connect.BidiStreamForClient[v1.ConnectRequest, v1.ConnectResponse] {
+// Connect calls epiral.v1.HubService.Connect.
+func (c *hubServiceClient) Connect(ctx context.Context) *connect.BidiStreamForClient[v1.ConnectRequest, v1.ConnectResponse] {
 	return c.connect.CallBidiStream(ctx)
 }
 
-// ComputerHubServiceHandler is an implementation of the epiral.v1.ComputerHubService service.
-type ComputerHubServiceHandler interface {
+// HubServiceHandler is an implementation of the epiral.v1.HubService service.
+type HubServiceHandler interface {
 	Connect(context.Context, *connect.BidiStream[v1.ConnectRequest, v1.ConnectResponse]) error
 }
 
-// NewComputerHubServiceHandler builds an HTTP handler from the service implementation. It returns
-// the path on which to mount the handler and the handler itself.
+// NewHubServiceHandler builds an HTTP handler from the service implementation. It returns the path
+// on which to mount the handler and the handler itself.
 //
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
-func NewComputerHubServiceHandler(svc ComputerHubServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	computerHubServiceMethods := v1.File_epiral_v1_epiral_proto.Services().ByName("ComputerHubService").Methods()
-	computerHubServiceConnectHandler := connect.NewBidiStreamHandler(
-		ComputerHubServiceConnectProcedure,
+func NewHubServiceHandler(svc HubServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	hubServiceMethods := v1.File_epiral_v1_epiral_proto.Services().ByName("HubService").Methods()
+	hubServiceConnectHandler := connect.NewBidiStreamHandler(
+		HubServiceConnectProcedure,
 		svc.Connect,
-		connect.WithSchema(computerHubServiceMethods.ByName("Connect")),
+		connect.WithSchema(hubServiceMethods.ByName("Connect")),
 		connect.WithHandlerOptions(opts...),
 	)
-	return "/epiral.v1.ComputerHubService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return "/epiral.v1.HubService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case ComputerHubServiceConnectProcedure:
-			computerHubServiceConnectHandler.ServeHTTP(w, r)
+		case HubServiceConnectProcedure:
+			hubServiceConnectHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
 	})
 }
 
-// UnimplementedComputerHubServiceHandler returns CodeUnimplemented from all methods.
-type UnimplementedComputerHubServiceHandler struct{}
+// UnimplementedHubServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedHubServiceHandler struct{}
 
-func (UnimplementedComputerHubServiceHandler) Connect(context.Context, *connect.BidiStream[v1.ConnectRequest, v1.ConnectResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("epiral.v1.ComputerHubService.Connect is not implemented"))
+func (UnimplementedHubServiceHandler) Connect(context.Context, *connect.BidiStream[v1.ConnectRequest, v1.ConnectResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("epiral.v1.HubService.Connect is not implemented"))
 }
