@@ -34,9 +34,11 @@ type Config struct {
 
 // Daemon 是电脑端的核心结构
 type Daemon struct {
-	config Config
-	stream *connect.BidiStreamForClient[v1.ConnectRequest, v1.ConnectResponse]
-	sendMu sync.Mutex // 保护 stream.Send 的并发安全
+	config   Config
+	stream   *connect.BidiStreamForClient[v1.ConnectRequest, v1.ConnectResponse]
+	sendMu   sync.Mutex // 保护 stream.Send 的并发安全
+	lastPong time.Time  // 最近一次收到 Pong 的时间
+	pongMu   sync.Mutex
 }
 
 // New 创建一个新的 Daemon
@@ -48,16 +50,20 @@ func New(cfg *Config) *Daemon {
 func (d *Daemon) Run(ctx context.Context) error {
 	log.Printf("连接 Agent: %s", d.config.AgentAddr)
 
-	// 创建 HTTP/2 client（h2c，支持 bidi streaming 长连接）
-	// 不设 ReadIdleTimeout，保活由应用层心跳处理
-	h2cClient := &http.Client{
-		Transport: &http2.Transport{
-			AllowHTTP: true,
-			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
-				return net.Dial(network, addr)
-			},
+	// 每次连接都创建新的 HTTP/2 transport，避免复用已损坏的连接
+	// ReadIdleTimeout: 30s 无数据时发送 HTTP/2 PING 帧
+	// PingTimeout: 10s 内没有 PING ACK 则关闭连接
+	transport := &http2.Transport{
+		AllowHTTP: true,
+		DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
+			dialer := &net.Dialer{Timeout: 10 * time.Second}
+			return dialer.DialContext(ctx, network, addr)
 		},
+		ReadIdleTimeout: 30 * time.Second,
+		PingTimeout:     10 * time.Second,
 	}
+	defer transport.CloseIdleConnections()
+	h2cClient := &http.Client{Transport: transport}
 	client := epiralv1connect.NewComputerHubServiceClient(
 		h2cClient,
 		d.config.AgentAddr,
@@ -77,13 +83,24 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	log.Printf("已注册: %s (%s/%s)", d.config.ComputerID, reg.Os, reg.Arch)
 
-	// 启动心跳（15 秒间隔，保持连接活跃）
-	go d.heartbeat(ctx, 15*time.Second)
+	// 初始化 lastPong
+	d.pongMu.Lock()
+	d.lastPong = time.Now()
+	d.pongMu.Unlock()
+
+	// 启动心跳（3 秒间隔），带 Pong 超时检测（10s）
+	heartbeatCtx, heartbeatCancel := context.WithCancelCause(ctx)
+	defer heartbeatCancel(nil)
+	go d.heartbeat(heartbeatCtx, heartbeatCancel, 3*time.Second)
 
 	// 主循环：接收命令
 	for {
 		resp, err := stream.Receive()
 		if err != nil {
+			// 区分心跳超时和其他错误
+			if cause := context.Cause(heartbeatCtx); cause != nil && cause != ctx.Err() {
+				return cause
+			}
 			return fmt.Errorf("接收消息失败: %w", err)
 		}
 		go d.handleMessage(ctx, resp)
@@ -102,7 +119,9 @@ func (d *Daemon) handleMessage(ctx context.Context, msg *v1.ConnectResponse) {
 	case *v1.ConnectResponse_EditFile:
 		d.handleEditFile(msg.RequestId, payload.EditFile)
 	case *v1.ConnectResponse_Pong:
-		// 心跳回应
+		d.pongMu.Lock()
+		d.lastPong = time.Now()
+		d.pongMu.Unlock()
 	default:
 		log.Printf("未知消息类型: %T", msg.Payload)
 	}
@@ -166,8 +185,10 @@ func detectTools() map[string]string {
 	return tools
 }
 
-// heartbeat 定期发送心跳
-func (d *Daemon) heartbeat(ctx context.Context, interval time.Duration) {
+// heartbeat 定期发送心跳，并检测 Pong 超时
+// 如果连续 pongTimeout（10s）没收到 Pong，主动取消连接触发重连
+func (d *Daemon) heartbeat(ctx context.Context, cancel context.CancelCauseFunc, interval time.Duration) {
+	const pongTimeout = 10 * time.Second
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
@@ -175,11 +196,25 @@ func (d *Daemon) heartbeat(ctx context.Context, interval time.Duration) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_ = d.send(&v1.ConnectRequest{
+			err := d.send(&v1.ConnectRequest{
 				Payload: &v1.ConnectRequest_Ping{
 					Ping: &v1.Ping{Timestamp: time.Now().UnixMilli()},
 				},
 			})
+			if err != nil {
+				log.Printf("心跳发送失败: %v", err)
+				cancel(fmt.Errorf("心跳发送失败: %w", err))
+				return
+			}
+			// 检查 Pong 超时
+			d.pongMu.Lock()
+			elapsed := time.Since(d.lastPong)
+			d.pongMu.Unlock()
+			if elapsed > pongTimeout {
+				log.Printf("Pong 超时 (%.0fs 未收到回应)，主动断连", elapsed.Seconds())
+				cancel(fmt.Errorf("Pong 超时 (%.0fs)", elapsed.Seconds()))
+				return
+			}
 		}
 	}
 }
