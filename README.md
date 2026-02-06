@@ -2,88 +2,90 @@
 
 # Epiral CLI
 
-**Turn any computer into a remotely controllable development machine.**
+**装一个工具，把任何机器变成 Agent 的资源**
 
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Connect RPC](https://img.shields.io/badge/RPC-Connect_RPC-6C47FF)](https://connectrpc.com)
 
-[中文](README.zh-CN.md) | English
+中文 | [English](README.en.md)
 
 </div>
 
 ---
 
-Install the Epiral CLI daemon on any machine, point it at your [Agent](https://github.com/epiral/agent) server, and that machine becomes a compute node you can control remotely — run shell commands, read/write files, and forward browser commands, all through a single persistent connection.
+一个二进制文件，几个参数，你的机器就成了 [Epiral Agent](https://github.com/epiral/agent) 的延伸。可以是工作站、VPS、Docker 沙箱——Agent 不关心，它只看到"可用资源"。
+
+一个 CLI 进程可以同时注册两种资源：**Computer**（shell + 文件操作）和 **Browser**（网页自动化，通过 [bb-browser](https://github.com/yan5xu/bb-browser) Chrome 扩展）。
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                    Epiral Agent (Server)                      │
-│                  ComputerHub gRPC Server                      │
-└──────────┬──────────────────────────┬────────────────────────┘
-           │                          │
-     Connect RPC                Connect RPC
-     Bidi Stream (h2c)          Bidi Stream (h2c)
-           │                          │
-┌──────────┴──────────┐   ┌──────────┴──────────┐
-│  my-pc            │   │  homelab            │
-│  MacBook Pro M2     │   │  Mac Mini M4        │
-│  darwin/arm64       │   │  darwin/arm64       │
-│  python3, git       │   │  go, node, docker   │
-│  🌐 my-chrome  │   │  🌐 home-chrome     │
-└─────────────────────┘   └─────────────────────┘
+                      Epiral Agent
+                 ┌──────────────────────┐
+                 │     ComputerHub      │
+                 │  ┌────────────────┐  │
+                 │  │  computers [ ] │  │
+                 │  │  browsers  [ ] │  │
+                 │  └────────────────┘  │
+                 └──┬─────────────┬─────┘
+                    │             │
+          ┌─────────┘             └─────────┐
+          │                                 │
+   ┌──────┴──────────┐           ┌──────────┴──────┐
+   │  Epiral CLI      │           │  Epiral CLI      │
+   │  my-pc         │           │  homelab         │
+   │                  │           │                  │
+   │  Computer ✓      │           │  Computer ✓      │
+   │  Browser  ✓      │           │                  │
+   │    ↕ SSE         │           └─────────────────┘
+   │  Chrome 扩展     │
+   └─────────────────┘
 ```
 
-## Why
+## 为什么
 
-AI coding agents need to operate real machines, not just sandboxed containers. But machines are behind NATs, on different networks, sometimes connected through flaky VPNs.
+AI Agent 需要操作真实机器——但机器在 NAT 后面、不同网络、不同地方。
 
-Epiral CLI solves this by **reversing the connection** — the daemon connects outward to the Agent server, establishing a persistent bidirectional stream. No port forwarding, no SSH tunnels. The Agent sees all registered machines and can dispatch commands to any of them.
+Epiral CLI 用**反向连接**解决：CLI 主动连 Agent，不需要端口转发、不需要 SSH 隧道。Agent 看到所有注册的机器，可以把命令派发到任何一台。
 
-## Features
+而且可以同时连多台。不同的机器做不同的事：
 
-- **Single binary, zero config** — one binary, a few flags, done
-- **Shell execution** — run commands with streaming stdout/stderr in real-time
-- **File operations** — read, write, and edit (find-and-replace) files remotely
-- **Browser bridge** — forward browser commands to a Chrome extension via embedded SSE server, enabling the Agent to control a real browser with user login sessions
-- **Auto-reconnect** — exponential backoff, resets after stable connection
-- **Tool discovery** — auto-detects installed tools (Go, Node, Python, Docker, etc.) and reports capabilities
-- **Path allowlist** — restrict access to specific directories
-- **Battle-tested resilience** — survives 10% packet loss on ZeroTier networks
+| 场景 | 机器 | 说明 |
+|------|------|------|
+| 日常开发 | 工作站 | 有完整开发环境、IDE 配置 |
+| 不信任的脚本 | Docker 沙箱 | 跑完就扔，不影响真机 |
+| GPU 训练 | 云服务器 | 按需租用，用完断开 |
+| 部署验证 | VPS | 模拟生产环境 |
 
-## Quick Start
+Agent 把任务路由到对的机器。危险操作丢给沙箱，Agent 自己永远安全。
 
-### Install
+## 快速开始
+
+### 安装
 
 ```bash
-# From source
 git clone https://github.com/epiral/cli.git
 cd cli && make build
-
-# Binary is at ./bin/epiral
+# 二进制文件在 ./bin/epiral
 ```
 
-### Run
+### 运行
 
 ```bash
-# Computer only (shell + file operations)
+# 只注册电脑（shell + 文件操作）
 ./bin/epiral \
   --agent http://your-agent:8002 \
   --computer-id my-machine \
   --paths /home/me/projects
 
-# Computer + Browser (full capabilities)
+# 同时注册电脑 + 浏览器
 ./bin/epiral \
   --agent http://your-agent:8002 \
-  --computer-id my-machine \
-  --computer-desc "My Workstation" \
+  --computer-id my-pc \
   --browser-id my-chrome \
-  --browser-desc "My Chrome" \
   --browser-port 19824 \
   --paths /home/me/projects
 ```
 
-That's it. Your machine is now available to the Agent.
+连上就能用：
 
 ```
 $ ./bin/epiral --agent http://192.168.1.100:8002 --computer-id my-pc \
@@ -92,164 +94,142 @@ $ ./bin/epiral --agent http://192.168.1.100:8002 --computer-id my-pc \
 2026/02/06 19:40:55 [连接] 已注册电脑: my-pc (darwin/arm64)
 2026/02/06 19:40:55 [浏览器] SSE 服务已启动: port=19824, id=my-chrome
 2026/02/06 19:40:55 [连接] 等待 Agent 下发命令...
-█  ← stays connected, waiting for commands
 ```
 
-## Usage
+## 用法
 
 ```
 epiral [flags]
 ```
 
-| Flag | Required | Default | Description |
-|------|----------|---------|-------------|
-| `--agent` | **yes** | — | Agent server URL |
-| `--computer-id` | no* | hostname | Machine identifier |
-| `--computer-desc` | no | same as id | Human-readable display name |
-| `--browser-id` | no* | — | Browser identifier (enables browser bridge) |
-| `--browser-desc` | no | same as id | Browser display name |
-| `--browser-port` | no | — | SSE server port for Chrome extension |
-| `--paths` | no | unrestricted | Comma-separated paths the Agent can access |
-| `--token` | no | — | Authentication token |
+| 参数 | 必填 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--agent` | **是** | — | Agent 服务地址 |
+| `--computer-id` | 否* | hostname | 电脑标识符 |
+| `--computer-desc` | 否 | 同 id | 电脑显示名 |
+| `--browser-id` | 否* | — | 浏览器标识符（启用浏览器桥接） |
+| `--browser-desc` | 否 | 同 id | 浏览器显示名 |
+| `--browser-port` | 否 | 19824 | Chrome 扩展 SSE 服务端口 |
+| `--paths` | 否 | 不限制 | 允许 Agent 访问的路径（逗号分隔） |
+| `--token` | 否 | — | 认证 token |
 
-> \* At least one of `--computer-id` or `--browser-id` must be specified.
+> \* `--computer-id` 和 `--browser-id` 至少指定一个。
+
+### 注册时上报的信息
+
+| 字段 | 示例 |
+|------|------|
+| OS / Arch | `darwin/arm64` |
+| Shell | `/bin/zsh` |
+| Home | `/Users/kl` |
+| 已安装工具 | `go 1.25`, `node v22.13.0`, `git 2.47.1`, `docker 27.5.1` |
+| 允许路径 | `/Users/kl/workspace` |
+| 浏览器（如启用） | `my-chrome` — online/offline |
 
 ### Browser Bridge
 
-When `--browser-id` and `--browser-port` are specified, the daemon starts an embedded HTTP server with:
+指定 `--browser-id` 后，CLI 会启动一个内嵌 HTTP 服务，桥接 Chrome 扩展（[bb-browser](https://github.com/yan5xu/bb-browser)）：
 
-- **`GET /sse`** — SSE endpoint for Chrome extension to connect and receive commands
-- **`POST /result`** — endpoint for Chrome extension to return command results
-- **`GET /status`** — health check (reports connection status and pending requests)
+| 端点 | 说明 |
+|------|------|
+| `GET /sse` | Chrome 扩展通过 SSE 连接，接收命令 |
+| `POST /result` | Chrome 扩展回传执行结果 |
+| `GET /status` | 健康检查 |
 
-The flow: Agent sends a browser command via gRPC → daemon forwards it to the Chrome extension via SSE → extension executes in the real browser → result posted back to `/result` → daemon returns it to Agent via gRPC.
+命令流转：Agent → gRPC → CLI → SSE → Chrome 扩展 → 执行 → POST /result → CLI → gRPC → Agent
 
-### What gets reported on registration
+## 两种资源类型
 
-When the daemon connects, it sends:
+### Computer
 
-| Field | Example |
-|-------|---------|
-| OS / Arch | `darwin/arm64` |
-| Shell | `/bin/zsh` |
-| Home directory | `/Users/kl` |
-| Installed tools | `go 1.25`, `node v22.13.0`, `git 2.47.1`, `docker 27.5.1` |
-| Allowed paths | `/Users/kl/workspace` |
-| Browser (if enabled) | `my-chrome` — "My-PC Chrome" (online/offline) |
+Agent 可以在远程电脑上执行的操作：
 
-## Protocol
+| 操作 | 说明 |
+|------|------|
+| Shell 执行 | 流式 stdout/stderr，实时返回 |
+| 文件读取 | 支持行偏移和行数限制 |
+| 文件写入 | 自动创建父目录 |
+| 文件编辑 | 查找替换，支持 replace_all |
 
-Built on [Connect RPC](https://connectrpc.com) (HTTP/2 bidirectional streaming). A single `Connect` RPC carries all traffic:
+所有文件操作受路径白名单（`--paths`）限制。
 
-```protobuf
-service ComputerHubService {
-  rpc Connect(stream ConnectRequest) returns (stream ConnectResponse);
-}
-```
+### Browser
 
-### Messages
+通过内嵌的 SSE 服务桥接 [bb-browser](https://github.com/yan5xu/bb-browser) Chrome 扩展，让 Agent 操控用户的真实浏览器。扩展连上后自动注册为 online，断开自动标记 offline。
 
-| Direction | Message | Description |
-|-----------|---------|-------------|
-| `CLI → Agent` | `Registration` | Machine identity and capabilities |
-| `CLI → Agent` | `BrowserRegistration` | Browser online/offline status |
-| `CLI → Agent` | `Ping` | Heartbeat (every 3s) |
-| `CLI → Agent` | `ExecOutput` | Streaming command output (stdout + stderr + exit code) |
-| `CLI → Agent` | `FileContent` | File read result |
-| `CLI → Agent` | `OpResult` | Write/edit success or failure |
-| `CLI → Agent` | `BrowserExecOutput` | Browser command result |
-| `Agent → CLI` | `ExecRequest` | Execute a shell command |
-| `Agent → CLI` | `ReadFileRequest` | Read a file (with offset/limit) |
-| `Agent → CLI` | `WriteFileRequest` | Write a file (auto-creates parent dirs) |
-| `Agent → CLI` | `EditFileRequest` | Find-and-replace in a file |
-| `Agent → CLI` | `BrowserExecRequest` | Execute a browser command |
-| `Agent → CLI` | `Pong` | Heartbeat response |
+## 连接韧性
 
-Full definition: [`proto/epiral/v1/epiral.proto`](proto/epiral/v1/epiral.proto)
-
-## Connection Resilience
-
-Designed for unreliable networks. Tested and tuned on ZeroTier with ~10% packet loss and 17–180ms latency jitter.
+在不稳定网络（如 ZeroTier ~10% 丢包）下实测调优：
 
 ```
-Heartbeat:    ──ping──ping──ping──ping──ping──ping──
-                3s    3s    3s    3s    3s    3s
+心跳:     ──ping──ping──ping──ping──
+            3s    3s    3s    3s
 
-Pong check:   If no pong received for 10s → disconnect → reconnect
+Pong 超时:  10s 未收到 → 断开 → 重连
 
-Reconnect:    1s → 2s → 4s → 8s → 16s → 30s (cap)
-              └── resets to 1s after 60s stable connection
+重连退避:   1s → 2s → 4s → 8s → 16s → 30s (上限)
+            └── 稳定 60s 后重置为 1s
 ```
 
-| Layer | Mechanism | Timeout |
-|-------|-----------|---------|
-| Application | Ping/Pong heartbeat | 3s interval, 10s deadline |
-| HTTP/2 | `ReadIdleTimeout` | 30s |
-| HTTP/2 | `PingTimeout` | 10s |
+| 层 | 机制 | 超时 |
+|----|------|------|
+| 应用层 | Ping/Pong 心跳 | 3s 间隔，10s 超时 |
+| HTTP/2 | ReadIdleTimeout | 30s |
+| HTTP/2 | PingTimeout | 10s |
 | TCP | Dial timeout | 10s |
 
-> [!NOTE]
-> Each reconnect creates a fresh HTTP/2 transport to avoid reusing broken connections.
+每次重连都创建全新的 HTTP/2 transport，避免复用损坏的连接。
 
-## Internals
+## 内部结构
 
 ```
 epiral-cli/
 ├── cmd/epiral/
-│   └── main.go              # Entry point: flags, signal handling, reconnect loop
+│   └── main.go              # 入口：参数、信号处理、重连循环
 ├── internal/daemon/
-│   ├── daemon.go             # Connect, register, heartbeat, message dispatch
-│   ├── exec.go               # Shell execution with streaming output
-│   ├── fileops.go            # Read / write / edit file operations
-│   └── browser.go            # Browser bridge: SSE server + command forwarding
+│   ├── daemon.go             # 连接、注册、心跳、消息分发
+│   ├── exec.go               # Shell 流式执行
+│   ├── fileops.go            # 文件读/写/编辑
+│   └── browser.go            # Browser Bridge: SSE 服务 + 命令转发
 ├── proto/epiral/v1/
-│   └── epiral.proto          # Protocol definition
-├── gen/                      # Generated protobuf + Connect RPC code
-├── Makefile                  # build · generate · lint · check · clean
-├── buf.yaml                  # Buf protobuf toolchain
-└── .golangci.yml             # 13 linters configured
+│   └── epiral.proto          # 协议定义
+├── gen/                      # 生成的 protobuf + Connect RPC 代码
+├── Makefile                  # build · generate · lint · check
+└── .golangci.yml             # 14 个 linter
 ```
 
-~1100 lines of hand-written Go. The rest is generated.
+~1100 行手写 Go 代码，其余是生成的。
 
-### Key design decisions
-
-- **Reverse connection** — CLI connects to Agent (not the other way around), solving NAT
-- **Single bidi stream** — all commands and responses multiplexed on one stream, correlated by `request_id`
-- **h2c (HTTP/2 cleartext)** — no TLS overhead for internal networks; add a reverse proxy for public exposure
-- **Mutex-protected sends** — `stream.Send()` is not concurrent-safe in Connect RPC; a `sync.Mutex` serializes all outbound messages
-- **Async command handling** — each incoming command dispatches to a goroutine, so long-running `exec` doesn't block file operations
-- **Browser command matching** — browser commands are matched by the `id` field in the command JSON (not the gRPC request ID), ensuring correct request-response pairing across the SSE bridge
-
-## Development
+## 开发
 
 ```bash
-make build      # Compile to ./bin/epiral
-make check      # Format + lint + build (pre-commit)
-make generate   # Regenerate protobuf code (requires buf)
-make clean      # Remove build artifacts
+make build      # 编译到 ./bin/epiral
+make check      # 格式化 + lint + 编译（提交前必跑）
+make generate   # 重新生成 protobuf 代码（需要 buf）
+make clean      # 清理构建产物
 ```
 
-### Requirements
+### 依赖
 
 - Go 1.25+
-- [buf](https://buf.build/) for protobuf code generation
-- [golangci-lint](https://golangci-lint.run/) for linting
+- [buf](https://buf.build/) — protobuf 代码生成
+- [golangci-lint](https://golangci-lint.run/) — lint
 
 ## Roadmap
 
-- [x] Browser bridge (SSE-based Chrome extension integration)
-- [ ] Persistent shell sessions (shell pool)
-- [ ] Environment snapshot auto-detection
-- [ ] mTLS / token authentication
-- [ ] Systemd / launchd service files
-- [ ] Cross-compilation + GitHub Releases
-- [ ] File upload/download (large files)
+- [x] Computer：shell 执行 + 文件操作
+- [x] Browser Bridge（SSE 桥接 Chrome 扩展）
+- [ ] 持久化 Shell 会话 (shell pool)
+- [ ] mTLS / token 认证
+- [ ] systemd / launchd 服务文件
+- [ ] 交叉编译 + GitHub Releases
+- [ ] 大文件上传/下载
 
-## Related
+## 相关项目
 
-- [Epiral Agent](https://github.com/epiral/agent) — the server side (Node.js)
+- [Epiral Agent](https://github.com/epiral/agent) — 大脑（Node.js）
+- [bb-browser](https://github.com/yan5xu/bb-browser) — 浏览器自动化 Chrome 扩展
 
-## License
+## 许可证
 
 [MIT](LICENSE)
