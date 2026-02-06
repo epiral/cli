@@ -1,0 +1,39 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+    - typecheck
+    - gofmt
+    - goimports
+    - misspell
+    - revive
+    - gosec
+    - unconvert
+    - gocritic
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+      - name: unexported-return
+        disabled: true
+  gosec:
+    excludes:
+      - G204  # subprocess launched with variable — 我们需要执行用户命令
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+
+issues:
+  exclude-dirs:
+    - gen  # 生成的代码不检查
