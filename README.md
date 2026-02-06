@@ -232,4 +232,4 @@ make clean      # 清理构建产物
 
 ## 许可证
 
-[MIT](LICENSE)
+[BSL 1.1](LICENSE)
