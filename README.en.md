@@ -2,7 +2,7 @@
 
 # Epiral CLI
 
-**Install one tool. Turn any machine into a resource for your Agent.**
+**One binary. Any machine becomes your Agent's extension.**
 
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -13,9 +13,9 @@
 
 ---
 
-One binary, a few flags, and your machine becomes an extension of [Epiral Agent](https://github.com/epiral/agent). Workstation, VPS, Docker sandbox — the Agent doesn't care, it just sees "available resources."
+A few flags, and your machine becomes an extension of [Epiral Agent](https://github.com/epiral/agent). Workstation, VPS, Docker sandbox — the Agent doesn't care what it is, just that it's available.
 
-A single CLI process can register two resource types simultaneously: **Computer** (shell + file operations) and **Browser** (web automation via the [bb-browser](https://github.com/yan5xu/bb-browser) Chrome extension).
+One process registers two resource types: **Computer** (shell + files) and **Browser** (web automation via the [bb-browser](https://github.com/yan5xu/bb-browser) Chrome extension).
 
 ```
                       Epiral Agent
@@ -42,11 +42,11 @@ A single CLI process can register two resource types simultaneously: **Computer*
 
 ## Why
 
-AI agents need to operate real machines — but machines are behind NATs, on different networks, in different locations.
+Agents need real machines. But machines are behind NATs, on different networks, in different places.
 
-Epiral CLI uses **reverse connection**: the CLI connects outward to the Agent. No port forwarding, no SSH tunnels. The Agent sees all registered machines and can dispatch commands to any of them.
+**Reverse connection**: the CLI connects outward to the Agent. No port forwarding. No SSH. The Agent sees all registered machines and dispatches to any of them.
 
-And you can connect multiple machines at once, each for a different purpose:
+Multiple machines at once, each for a different purpose:
 
 | Scenario | Machine | Why |
 |----------|---------|-----|
@@ -55,7 +55,7 @@ And you can connect multiple machines at once, each for a different purpose:
 | GPU training | Cloud server | Rent on demand, disconnect when done |
 | Deploy testing | VPS | Simulates production |
 
-The Agent routes tasks to the right machine. Dangerous operations go to a sandbox. The Agent itself is always safe.
+The Agent routes tasks to the right machine. Dangerous ops go to a sandbox. The Agent is always safe.
 
 ## Quick Start
 
