@@ -1,21 +1,35 @@
-MIT License
+Business Source License 1.1
 
-Copyright (c) 2026 epiral
+Parameters
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Licensor: epiral
+Licensed Work: Epiral CLI
+Additional Use Grant: You may use the Licensed Work for personal and 
+                      non-commercial purposes at no cost.
+Change Date: 2029-02-06
+Change License: GNU Affero General Public License, Version 3.0 (AGPL-3.0)
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+---
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Terms
+
+1. The Licensor hereby grants you the right to copy, modify, create derivative works, 
+   redistribute, and make the Licensed Work available, for any purpose, subject 
+   to the condition that your use of the Licensed Work is at all times either 
+   (a) for non-production purposes, (b) for production purposes within the scope 
+   of the Additional Use Grant, or (c) after the Change Date.
+
+2. The Licensor hereby grants you the right to copy, modify, create derivative works, 
+   redistribute, and make the Licensed Work available, under the terms of the 
+   Change License, on and after the Change Date.
+
+3. You must include a copy of this license in all copies of the Licensed Work 
+   and any derivative works you create.
+
+4. TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED ON 
+   AN "AS IS" BASIS. THE LICENSOR HEREBY DISCLAIMS ALL WARRANTIES AND CONDITIONS, 
+   EXPRESS OR IMPLIED, INCLUDING (WITHOUT LIMITATION) WARRANTIES OF MERCHANTABILITY, 
+   FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND TITLE.
+
+5. This license does not grant you any right to use the Licensor's trademarks, 
+   service marks, or logos.
