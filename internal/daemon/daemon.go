@@ -1,5 +1,5 @@
 // Package daemon 实现 Epiral CLI 的核心逻辑。
-// 作为 Connect RPC client 连接到 Agent 的 ComputerHubService，
+// 作为 Connect RPC client 连接到 Agent 的 HubService，
 // 通过双向流接收命令并执行。
 package daemon
 
@@ -26,19 +26,23 @@ import (
 // Config 是 Daemon 的配置
 type Config struct {
 	AgentAddr    string   // Agent 地址 (如 http://localhost:50051)
-	ComputerID   string   // 电脑 ID (如 "skywork")
-	DisplayName  string   // 显示名称
+	ComputerID   string   // 电脑 ID（空 = 不注册电脑）
+	ComputerDesc string   // 电脑描述
+	BrowserID    string   // 浏览器 ID（空 = 不启用浏览器）
+	BrowserDesc  string   // 浏览器描述
+	BrowserPort  int      // 浏览器 SSE 服务端口（默认 19824）
 	AllowedPaths []string // 允许访问的路径
 	Token        string   // 认证 token
 }
 
-// Daemon 是电脑端的核心结构
+// Daemon 是核心结构
 type Daemon struct {
 	config   Config
 	stream   *connect.BidiStreamForClient[v1.ConnectRequest, v1.ConnectResponse]
 	sendMu   sync.Mutex // 保护 stream.Send 的并发安全
-	lastPong time.Time  // 最近一次收到 Pong 的时间
+	lastPong time.Time
 	pongMu   sync.Mutex
+	browser  *BrowserBridge // 浏览器桥接（nil = 未启用）
 }
 
 // New 创建一个新的 Daemon
@@ -51,8 +55,6 @@ func (d *Daemon) Run(ctx context.Context) error {
 	log.Printf("[连接] 正在连接 Agent: %s", d.config.AgentAddr)
 
 	// 每次连接都创建新的 HTTP/2 transport，避免复用已损坏的连接
-	// ReadIdleTimeout: 30s 无数据时发送 HTTP/2 PING 帧
-	// PingTimeout: 10s 内没有 PING ACK 则关闭连接
 	transport := &http2.Transport{
 		AllowHTTP: true,
 		DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
@@ -64,7 +66,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	defer transport.CloseIdleConnections()
 	h2cClient := &http.Client{Transport: transport}
-	client := epiralv1connect.NewComputerHubServiceClient(
+	client := epiralv1connect.NewHubServiceClient(
 		h2cClient,
 		d.config.AgentAddr,
 	)
@@ -74,21 +76,33 @@ func (d *Daemon) Run(ctx context.Context) error {
 	d.stream = stream
 	defer func() { _ = stream.CloseRequest() }()
 
-	// 发送 Registration
-	reg := d.buildRegistration()
-	if err := stream.Send(&v1.ConnectRequest{
-		Payload: &v1.ConnectRequest_Registration{Registration: reg},
-	}); err != nil {
-		return fmt.Errorf("发送 Registration 失败: %w", err)
+	// 条件注册: Computer
+	if d.config.ComputerID != "" {
+		reg := d.buildRegistration()
+		if err := stream.Send(&v1.ConnectRequest{
+			Payload: &v1.ConnectRequest_Registration{Registration: reg},
+		}); err != nil {
+			return fmt.Errorf("发送 Registration 失败: %w", err)
+		}
+		log.Printf("[连接] 已注册电脑: %s (%s/%s)", d.config.ComputerID, reg.Os, reg.Arch)
 	}
-	log.Printf("[连接] 已注册: %s (%s/%s)", d.config.ComputerID, reg.Os, reg.Arch)
+
+	// 条件注册: Browser — 启动 SSE 服务并等待插件连接
+	if d.config.BrowserID != "" {
+		d.browser = NewBrowserBridge(d.config.BrowserID, d.config.BrowserDesc, d.config.BrowserPort, d)
+		if err := d.browser.Start(ctx); err != nil {
+			return fmt.Errorf("启动浏览器 SSE 服务失败: %w", err)
+		}
+		defer d.browser.Stop()
+		log.Printf("[浏览器] SSE 服务已启动: port=%d, id=%s", d.config.BrowserPort, d.config.BrowserID)
+	}
 
 	// 初始化 lastPong
 	d.pongMu.Lock()
 	d.lastPong = time.Now()
 	d.pongMu.Unlock()
 
-	// 启动心跳（3 秒间隔），带 Pong 超时检测（10s）
+	// 启动心跳
 	heartbeatCtx, heartbeatCancel := context.WithCancelCause(ctx)
 	defer heartbeatCancel(nil)
 	go d.heartbeat(heartbeatCtx, heartbeatCancel, 3*time.Second)
@@ -99,7 +113,6 @@ func (d *Daemon) Run(ctx context.Context) error {
 	for {
 		resp, err := stream.Receive()
 		if err != nil {
-			// 区分心跳超时和其他错误
 			if cause := context.Cause(heartbeatCtx); cause != nil && cause != ctx.Err() {
 				return cause
 			}
@@ -113,13 +126,32 @@ func (d *Daemon) Run(ctx context.Context) error {
 func (d *Daemon) handleMessage(ctx context.Context, msg *v1.ConnectResponse) {
 	switch payload := msg.Payload.(type) {
 	case *v1.ConnectResponse_Exec:
+		if d.config.ComputerID == "" {
+			log.Printf("[连接] 收到 Exec 但未启用电脑功能，忽略")
+			return
+		}
 		d.handleExec(ctx, msg.RequestId, payload.Exec)
 	case *v1.ConnectResponse_ReadFile:
+		if d.config.ComputerID == "" {
+			return
+		}
 		d.handleReadFile(msg.RequestId, payload.ReadFile)
 	case *v1.ConnectResponse_WriteFile:
+		if d.config.ComputerID == "" {
+			return
+		}
 		d.handleWriteFile(msg.RequestId, payload.WriteFile)
 	case *v1.ConnectResponse_EditFile:
+		if d.config.ComputerID == "" {
+			return
+		}
 		d.handleEditFile(msg.RequestId, payload.EditFile)
+	case *v1.ConnectResponse_BrowserExec:
+		if d.browser == nil {
+			log.Printf("[连接] 收到 BrowserExec 但未启用浏览器功能，忽略")
+			return
+		}
+		d.browser.HandleBrowserExec(msg.RequestId, payload.BrowserExec)
 	case *v1.ConnectResponse_Pong:
 		d.pongMu.Lock()
 		d.lastPong = time.Now()
@@ -136,7 +168,38 @@ func (d *Daemon) send(msg *v1.ConnectRequest) error {
 	return d.stream.Send(msg)
 }
 
-// buildRegistration 构建注册信息
+// sendBrowserRegistration 发送浏览器注册/状态变更
+func (d *Daemon) sendBrowserRegistration(browserID, description string, online bool) {
+	if err := d.send(&v1.ConnectRequest{
+		Payload: &v1.ConnectRequest_BrowserRegistration{
+			BrowserRegistration: &v1.BrowserRegistration{
+				BrowserId:   browserID,
+				Description: description,
+				Online:      online,
+			},
+		},
+	}); err != nil {
+		log.Printf("[浏览器] 发送 BrowserRegistration 失败: %v", err)
+	}
+}
+
+// sendBrowserExecOutput 发送浏览器命令执行结果
+func (d *Daemon) sendBrowserExecOutput(requestID, resultJSON, errMsg string) {
+	if err := d.send(&v1.ConnectRequest{
+		RequestId: requestID,
+		Payload: &v1.ConnectRequest_BrowserExecOutput{
+			BrowserExecOutput: &v1.BrowserExecOutput{
+				ResultJson: resultJSON,
+				Error:      errMsg,
+				Done:       true,
+			},
+		},
+	}); err != nil {
+		log.Printf("[浏览器] 发送 BrowserExecOutput 失败: %v", err)
+	}
+}
+
+// buildRegistration 构建电脑注册信息
 func (d *Daemon) buildRegistration() *v1.Registration {
 	homeDir, _ := os.UserHomeDir()
 	shell := os.Getenv("SHELL")
@@ -144,9 +207,14 @@ func (d *Daemon) buildRegistration() *v1.Registration {
 		shell = "/bin/sh"
 	}
 
+	desc := d.config.ComputerDesc
+	if desc == "" {
+		desc = d.config.ComputerID
+	}
+
 	return &v1.Registration{
 		ComputerId:   d.config.ComputerID,
-		DisplayName:  d.config.DisplayName,
+		Description:  desc,
 		Os:           runtime.GOOS,
 		Arch:         runtime.GOARCH,
 		Shell:        shell,
@@ -188,7 +256,6 @@ func detectTools() map[string]string {
 }
 
 // heartbeat 定期发送心跳，并检测 Pong 超时
-// 如果连续 pongTimeout（10s）没收到 Pong，主动取消连接触发重连
 func (d *Daemon) heartbeat(ctx context.Context, cancel context.CancelCauseFunc, interval time.Duration) {
 	const pongTimeout = 10 * time.Second
 	ticker := time.NewTicker(interval)
@@ -208,7 +275,6 @@ func (d *Daemon) heartbeat(ctx context.Context, cancel context.CancelCauseFunc, 
 				cancel(fmt.Errorf("心跳发送失败: %w", err))
 				return
 			}
-			// 检查 Pong 超时
 			d.pongMu.Lock()
 			elapsed := time.Since(d.lastPong)
 			d.pongMu.Unlock()
