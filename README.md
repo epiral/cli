@@ -2,7 +2,7 @@
 
 # Epiral CLI
 
-**装一个工具，把任何机器变成 Agent 的资源**
+**一个二进制，任何机器变成 Agent 的延伸**
 
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -13,9 +13,9 @@
 
 ---
 
-一个二进制文件，几个参数，你的机器就成了 [Epiral Agent](https://github.com/epiral/agent) 的延伸。可以是工作站、VPS、Docker 沙箱——Agent 不关心，它只看到"可用资源"。
+几个参数，你的机器就成了 [Epiral Agent](https://github.com/epiral/agent) 的延伸。工作站、VPS、Docker 沙箱——Agent 不关心是什么，只看到可用资源。
 
-一个 CLI 进程可以同时注册两种资源：**Computer**（shell + 文件操作）和 **Browser**（网页自动化，通过 [bb-browser](https://github.com/yan5xu/bb-browser) Chrome 扩展）。
+一个进程同时注册两种资源：**Computer**（shell + 文件）和 **Browser**（网页自动化，通过 [bb-browser](https://github.com/yan5xu/bb-browser) Chrome 扩展）。
 
 ```
                       Epiral Agent
@@ -42,11 +42,11 @@
 
 ## 为什么
 
-AI Agent 需要操作真实机器——但机器在 NAT 后面、不同网络、不同地方。
+Agent 需要操作真实机器。但机器在 NAT 后面，不同网络，不同地方。
 
-Epiral CLI 用**反向连接**解决：CLI 主动连 Agent，不需要端口转发、不需要 SSH 隧道。Agent 看到所有注册的机器，可以把命令派发到任何一台。
+**反向连接**：CLI 主动连 Agent，无需端口转发，无需 SSH。Agent 看到所有注册的机器，命令派发到任何一台。
 
-而且可以同时连多台。不同的机器做不同的事：
+同时连多台，不同机器做不同事：
 
 | 场景 | 机器 | 说明 |
 |------|------|------|
@@ -55,7 +55,7 @@ Epiral CLI 用**反向连接**解决：CLI 主动连 Agent，不需要端口转�
 | GPU 训练 | 云服务器 | 按需租用，用完断开 |
 | 部署验证 | VPS | 模拟生产环境 |
 
-Agent 把任务路由到对的机器。危险操作丢给沙箱，Agent 自己永远安全。
+Agent 路由任务到对的机器。危险操作丢沙箱，Agent 永远安全。
 
 ## 快速开始
 
