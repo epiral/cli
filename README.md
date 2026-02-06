@@ -5,7 +5,7 @@
 **一个二进制，任何机器变成 Agent 的延伸**
 
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-BSL%201.1-orange.svg)](LICENSE)
 
 中文 | [English](README.en.md)
 
