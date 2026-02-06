@@ -49,15 +49,13 @@ func (d *Daemon) Run(ctx context.Context) error {
 	log.Printf("连接 Agent: %s", d.config.AgentAddr)
 
 	// 创建 HTTP/2 client（h2c，支持 bidi streaming 长连接）
+	// 不设 ReadIdleTimeout，保活由应用层心跳处理
 	h2cClient := &http.Client{
 		Transport: &http2.Transport{
 			AllowHTTP: true,
 			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
 				return net.Dial(network, addr)
 			},
-			// 长连接保活：15 秒无数据则发 HTTP/2 PING
-			ReadIdleTimeout: 15 * time.Second,
-			PingTimeout:     5 * time.Second,
 		},
 	}
 	client := epiralv1connect.NewComputerHubServiceClient(
@@ -79,8 +77,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	log.Printf("已注册: %s (%s/%s)", d.config.ComputerID, reg.Os, reg.Arch)
 
-	// 启动心跳
-	go d.heartbeat(ctx, 30*time.Second)
+	// 启动心跳（15 秒间隔，保持连接活跃）
+	go d.heartbeat(ctx, 15*time.Second)
 
 	// 主循环：接收命令
 	for {
