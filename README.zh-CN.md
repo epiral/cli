@@ -14,7 +14,7 @@
 
 ---
 
-在任意一台机器上安装 Epiral CLI daemon，指向你的 [Agent](https://github.com/epiral/agent) 服务器，这台机器就变成了一个可远程控制的计算节点——执行 shell 命令、读写文件，全部通过一条持久连接完成。
+在任意一台机器上安装 Epiral CLI daemon，指向你的 [Agent](https://github.com/epiral/agent) 服务器，这台机器就变成了一个可远程控制的计算节点——执行 shell 命令、读写文件、转发浏览器命令，全部通过一条持久连接完成。
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -30,6 +30,7 @@
 │  MacBook Pro M2     │   │  Mac Mini M4        │
 │  darwin/arm64       │   │  darwin/arm64       │
 │  python3, git       │   │  go, node, docker   │
+│  🌐 my-chrome  │   │  🌐 home-chrome     │
 └─────────────────────┘   └─────────────────────┘
 ```
 
@@ -44,6 +45,7 @@ Epiral CLI 通过**反向连接**解决这个问题——daemon 主动向外连�
 - **单二进制，零配置** — 一个二进制文件，几个参数，搞定
 - **Shell 执行** — 运行命令，实时流式返回 stdout/stderr
 - **文件操作** — 远程读取、写入、编辑（查找替换）文件
+- **浏览器桥接** — 内嵌 SSE 服务，将浏览器命令转发给 Chrome 插件，让 Agent 能操控带用户登录态的真实浏览器
 - **自动重连** — 指数退避，连接稳定后自动重置
 - **工具发现** — 自动检测已安装工具（Go、Node、Python、Docker 等）并上报能力
 - **路径白名单** — 限制访问范围到指定目录
@@ -64,19 +66,32 @@ cd cli && make build
 ### 运行
 
 ```bash
+# 仅电脑模式（shell + 文件操作）
 ./bin/epiral \
   --agent http://your-agent:8002 \
-  --id my-machine \
+  --computer-id my-machine \
+  --paths /home/me/projects
+
+# 电脑 + 浏览器（完整能力）
+./bin/epiral \
+  --agent http://your-agent:8002 \
+  --computer-id my-machine \
+  --computer-desc "我的工作站" \
+  --browser-id my-chrome \
+  --browser-desc "我的 Chrome" \
+  --browser-port 19824 \
   --paths /home/me/projects
 ```
 
 完事。你的机器现在对 Agent 可用了。
 
 ```
-$ ./bin/epiral --agent http://192.168.1.100:8002 --id my-pc
-2026/02/06 16:02:58 Epiral CLI v0.1.2: id=my-pc, agent=http://192.168.1.100:8002
-2026/02/06 16:02:58 连接 Agent: http://192.168.1.100:8002
-2026/02/06 16:02:58 已注册: my-pc (darwin/arm64)
+$ ./bin/epiral --agent http://192.168.1.100:8002 --computer-id my-pc \
+    --browser-id my-chrome --browser-port 19824
+2026/02/06 19:40:54 [系统] Epiral CLI 启动 (v0.2.0): computer=my-pc, browser=my-chrome (port 19824)
+2026/02/06 19:40:55 [连接] 已注册电脑: my-pc (darwin/arm64)
+2026/02/06 19:40:55 [浏览器] SSE 服务已启动: port=19824, id=my-chrome
+2026/02/06 19:40:55 [连接] 等待 Agent 下发命令...
 █  ← 保持连接，等待命令
 ```
 
@@ -89,10 +104,25 @@ epiral [flags]
 | 参数 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
 | `--agent` | **是** | — | Agent 服务器地址 |
-| `--id` | 否 | 主机名 | 机器标识 |
-| `--name` | 否 | 同 `--id` | 显示名称 |
+| `--computer-id` | 否* | 主机名 | 机器标识 |
+| `--computer-desc` | 否 | 同 id | 显示名称 |
+| `--browser-id` | 否* | — | 浏览器标识（启用浏览器桥接） |
+| `--browser-desc` | 否 | 同 id | 浏览器显示名称 |
+| `--browser-port` | 否 | — | Chrome 插件 SSE 服务端口 |
 | `--paths` | 否 | 不限制 | Agent 可访问的路径，逗号分隔 |
 | `--token` | 否 | — | 认证 token |
+
+> \* `--computer-id` 和 `--browser-id` 至少指定一个。
+
+### 浏览器桥接
+
+指定 `--browser-id` 和 `--browser-port` 后，daemon 会启动一个内嵌 HTTP 服务：
+
+- **`GET /sse`** — Chrome 插件通过 SSE 连接，接收命令
+- **`POST /result`** — Chrome 插件回传命令执行结果
+- **`GET /status`** — 健康检查（连接状态 + pending 请求数）
+
+数据流：Agent 通过 gRPC 下发浏览器命令 → daemon 通过 SSE 转发给 Chrome 插件 → 插件在真实浏览器中执行 → 结果 POST 到 `/result` → daemon 通过 gRPC 返回给 Agent。
 
 ### 注册时上报的信息
 
@@ -105,6 +135,7 @@ daemon 连接时会自动发送：
 | Home 目录 | `/Users/kl` |
 | 已安装工具 | `go 1.25`、`node v22.13.0`、`git 2.47.1`、`docker 27.5.1` |
 | 允许路径 | `/Users/kl/workspace` |
+| 浏览器（如启用） | `my-chrome` — "My-PC Chrome" (在线/离线) |
 
 ## 协议
 
@@ -121,14 +152,17 @@ service ComputerHubService {
 | 方向 | 消息 | 说明 |
 |------|------|------|
 | `CLI → Agent` | `Registration` | 上报机器身份和能力 |
+| `CLI → Agent` | `BrowserRegistration` | 浏览器上线/下线状态 |
 | `CLI → Agent` | `Ping` | 心跳（每 3 秒） |
 | `CLI → Agent` | `ExecOutput` | 流式命令输出（stdout + stderr + exit code） |
 | `CLI → Agent` | `FileContent` | 文件读取结果 |
 | `CLI → Agent` | `OpResult` | 写入/编辑成功或失败 |
+| `CLI → Agent` | `BrowserExecOutput` | 浏览器命令执行结果 |
 | `Agent → CLI` | `ExecRequest` | 执行 shell 命令 |
 | `Agent → CLI` | `ReadFileRequest` | 读取文件（支持 offset/limit 分页） |
 | `Agent → CLI` | `WriteFileRequest` | 写入文件（自动创建父目录） |
 | `Agent → CLI` | `EditFileRequest` | 文件查找替换 |
+| `Agent → CLI` | `BrowserExecRequest` | 执行浏览器命令 |
 | `Agent → CLI` | `Pong` | 心跳回应 |
 
 完整定义：[`proto/epiral/v1/epiral.proto`](proto/epiral/v1/epiral.proto)
@@ -166,16 +200,17 @@ epiral-cli/
 ├── internal/daemon/
 │   ├── daemon.go             # 连接、注册、心跳、消息分发
 │   ├── exec.go               # Shell 命令流式执行
-│   └── fileops.go            # 文件读取 / 写入 / 编辑
+│   ├── fileops.go            # 文件读取 / 写入 / 编辑
+│   └── browser.go            # 浏览器桥接：SSE 服务 + 命令转发
 ├── proto/epiral/v1/
-│   └── epiral.proto          # 协议定义（111 行）
+│   └── epiral.proto          # 协议定义
 ├── gen/                      # 生成的 protobuf + Connect RPC 代码
 ├── Makefile                  # build · generate · lint · check · clean
 ├── buf.yaml                  # Buf protobuf 工具链
 └── .golangci.yml             # 配置了 13 个 linter
 ```
 
-~750 行手写 Go 代码，其余是生成的。
+~1100 行手写 Go 代码，其余是生成的。
 
 ### 关键设计决策
 
@@ -184,6 +219,7 @@ epiral-cli/
 - **h2c (HTTP/2 明文)** — 内网无 TLS 开销；公网暴露时加反向代理
 - **Mutex 保护发送** — Connect RPC 的 `stream.Send()` 非并发安全，用 `sync.Mutex` 串行化所有出站消息
 - **异步命令处理** — 每个传入命令在 goroutine 中处理，长时间运行的 `exec` 不会阻塞文件操作
+- **浏览器命令匹配** — 使用 command JSON 中的 `id` 字段（而非 gRPC request ID）匹配请求和响应，确保跨 SSE 桥接的正确配对
 
 ## 开发
 
@@ -202,6 +238,7 @@ make clean      # 清理构建产物
 
 ## 路线图
 
+- [x] 浏览器桥接（基于 SSE 的 Chrome 插件集成）
 - [ ] 持久化 Shell 会话（Shell Pool）
 - [ ] 环境快照自动检测
 - [ ] mTLS / Token 认证
