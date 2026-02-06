@@ -61,31 +61,45 @@ func main() {
 	}()
 
 	d := daemon.New(&cfg)
-	log.Printf("Epiral CLI 启动: id=%s, agent=%s", cfg.ComputerID, cfg.AgentAddr)
+	log.Printf("Epiral CLI 启动 (v0.1.2): id=%s, agent=%s", cfg.ComputerID, cfg.AgentAddr)
 
-	// 自动重连循环
+	// 自动重连循环（指数退避：1s → 2s → 4s → ... → 30s 上限，连接成功后重置）
+	backoff := time.Second
+	const maxBackoff = 30 * time.Second
+
 	for {
 		if ctx.Err() != nil {
 			break
 		}
 
+		connectStart := time.Now()
 		err := d.Run(ctx)
 		if err == nil {
-			// 正常退出（如 ctx 被 cancel）
 			break
 		}
-
 		if ctx.Err() != nil {
 			break
 		}
 
-		log.Printf("连接断开: %v", err)
-		log.Println("3 秒后尝试重连...")
+		connDuration := time.Since(connectStart)
+		log.Printf("连接断开: %v (持续 %.0fs)", err, connDuration.Seconds())
+
+		// 如果连接维持了超过 60s，说明之前是正常的，重置退避
+		if connDuration > 60*time.Second {
+			backoff = time.Second
+		}
+
+		log.Printf("%.0fs 后尝试重连...", backoff.Seconds())
 		select {
 		case <-ctx.Done():
 			break
-		case <-time.After(3 * time.Second):
-			// 继续重连
+		case <-time.After(backoff):
+		}
+
+		// 指数退避
+		backoff = backoff * 2
+		if backoff > maxBackoff {
+			backoff = maxBackoff
 		}
 	}
 	cancel()
