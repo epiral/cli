@@ -109,6 +109,16 @@ func (b *BrowserBridge) Stop() {
 func (b *BrowserBridge) HandleBrowserExec(requestID string, req *v1.BrowserExecRequest) {
 	log.Printf("[浏览器] 收到命令: %s", truncate(req.CommandJson, 80))
 
+	// 从 commandJson 中提取 id 字段，用于匹配插件回传的结果
+	var cmd struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(req.CommandJson), &cmd); err != nil || cmd.ID == "" {
+		b.daemon.sendBrowserExecOutput(requestID, "", "commandJson 缺少 id 字段")
+		return
+	}
+	cmdID := cmd.ID
+
 	// 检查插件是否连接
 	b.sseMu.Lock()
 	if !b.connected {
@@ -118,20 +128,19 @@ func (b *BrowserBridge) HandleBrowserExec(requestID string, req *v1.BrowserExecR
 	}
 	b.sseMu.Unlock()
 
-	// 注册 pending 请求
+	// 注册 pending 请求（用 commandJson 的 id，因为插件回传时用的也是这个 id）
 	resultCh := make(chan string, 1)
 	b.pendingMu.Lock()
-	b.pending[requestID] = resultCh
+	b.pending[cmdID] = resultCh
 	b.pendingMu.Unlock()
 
 	defer func() {
 		b.pendingMu.Lock()
-		delete(b.pending, requestID)
+		delete(b.pending, cmdID)
 		b.pendingMu.Unlock()
 	}()
 
 	// 通过 SSE 推送命令给插件
-	// command_json 里已有 id 字段（由 Agent 生成），直接转发
 	if err := b.sseWrite("command", req.CommandJson); err != nil {
 		b.daemon.sendBrowserExecOutput(requestID, "", fmt.Sprintf("SSE 推送失败: %v", err))
 		return
