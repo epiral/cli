@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package epiral.v1;
+
+// Agent 侧 gRPC Server — CLI 连上来建立双向命令通道
+service ComputerHubService {
+  rpc Connect(stream ConnectRequest) returns (stream ConnectResponse);
+}
+
+// ==================== 上行消息 (CLI → Agent) ====================
+
+message ConnectRequest {
+  string request_id = 1;
+
+  oneof payload {
+    Registration registration = 10;
+    ExecOutput   exec_output  = 11;
+    FileContent  file_content = 12;
+    OpResult     op_result    = 13;
+    Ping         ping         = 14;
+  }
+}
+
+// 首次连接：我是谁
+message Registration {
+  string computer_id              = 1;  // "my-pc"
+  string display_name             = 2;  // "My-PC Mac Studio"
+  string os                       = 3;  // "darwin" | "linux"
+  string arch                     = 4;  // "arm64" | "amd64"
+  string shell                    = 5;  // "/bin/zsh"
+  string home_dir                 = 6;  // "/Users/xx"
+  map<string, string> tools       = 7;  // {"go": "1.22", "node": "22.13"}
+  repeated string allowed_paths   = 8;  // ["/Users/xx/workspace", "/tmp"]
+  string token                    = 9;  // 认证 token
+}
+
+// 命令执行输出（流式：多条消息，done=true 结束）
+message ExecOutput {
+  string stdout    = 1;
+  string stderr    = 2;
+  int32  exit_code = 3;
+  bool   done      = 4;  // true = 最后一条
+  string workdir   = 5;  // 执行后的 cwd
+}
+
+// 文件读取结果
+message FileContent {
+  string content     = 1;
+  int64  total_lines = 2;
+  int64  file_size   = 3;  // 实际文件大小（字节）
+  string error       = 4;  // 非空表示失败
+}
+
+// 写入/编辑等操作结果
+message OpResult {
+  bool   success = 1;
+  string error   = 2;
+}
+
+message Ping {
+  int64 timestamp = 1;
+}
+
+// ==================== 下行消息 (Agent → CLI) ====================
+
+message ConnectResponse {
+  string request_id = 1;
+
+  oneof payload {
+    ExecRequest      exec       = 10;
+    ReadFileRequest  read_file  = 11;
+    WriteFileRequest write_file = 12;
+    EditFileRequest  edit_file  = 13;
+    Pong             pong       = 14;
+  }
+}
+
+// 执行命令
+message ExecRequest {
+  string command    = 1;
+  string workdir    = 2;  // 工作目录（空 = home_dir）
+  int32  timeout_ms = 3;  // 超时毫秒（0 = 默认 30000）
+  string session_id = 4;  // Shell Pool 用，空 = one-shot (P1)
+}
+
+// 读文件
+message ReadFileRequest {
+  string path     = 1;
+  int32  offset   = 2;  // 行偏移（0-based）
+  int32  limit    = 3;  // 行数（0 = 全部，默认 2000）
+  int64  max_size = 4;  // 字节上限（0 = 默认 256KB）
+}
+
+// 写文件
+message WriteFileRequest {
+  string path    = 1;
+  string content = 2;
+}
+
+// 编辑文件（查找替换）
+message EditFileRequest {
+  string path        = 1;
+  string old_string  = 2;
+  string new_string  = 3;
+  bool   replace_all = 4;
+}
+
+message Pong {
+  int64 timestamp = 1;
+}
