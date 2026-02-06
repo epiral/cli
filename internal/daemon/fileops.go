@@ -19,6 +19,7 @@ const (
 // handleReadFile 读取文件
 func (d *Daemon) handleReadFile(requestID string, req *v1.ReadFileRequest) {
 	path := req.Path
+	log.Printf("[文件] 读取 %s", path)
 	if !d.isPathAllowed(path) {
 		d.sendFileContent(requestID, "", 0, 0, fmt.Sprintf("路径不允许: %s", path))
 		return
@@ -84,6 +85,7 @@ func (d *Daemon) handleReadFile(requestID string, req *v1.ReadFileRequest) {
 
 // handleWriteFile 写入文件
 func (d *Daemon) handleWriteFile(requestID string, req *v1.WriteFileRequest) {
+	log.Printf("[文件] 写入 %s (%d 字节)", req.Path, len(req.Content))
 	if !d.isPathAllowed(req.Path) {
 		d.sendOpResult(requestID, false, fmt.Sprintf("路径不允许: %s", req.Path))
 		return
@@ -101,6 +103,7 @@ func (d *Daemon) handleWriteFile(requestID string, req *v1.WriteFileRequest) {
 
 // handleEditFile 编辑文件（查找替换）
 func (d *Daemon) handleEditFile(requestID string, req *v1.EditFileRequest) {
+	log.Printf("[文件] 编辑 %s", req.Path)
 	if !d.isPathAllowed(req.Path) {
 		d.sendOpResult(requestID, false, fmt.Sprintf("路径不允许: %s", req.Path))
 		return
@@ -156,7 +159,7 @@ func (d *Daemon) sendFileContent(requestID, content string, totalLines, fileSize
 			},
 		},
 	}); err != nil {
-		log.Printf("发送 FileContent 失败: %v", err)
+		log.Printf("[文件] 发送内容失败: %v", err)
 	}
 }
 
@@ -171,6 +174,6 @@ func (d *Daemon) sendOpResult(requestID string, success bool, errMsg string) {
 			},
 		},
 	}); err != nil {
-		log.Printf("发送 OpResult 失败: %v", err)
+		log.Printf("[文件] 发送结果失败: %v", err)
 	}
 }

@@ -56,12 +56,12 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		log.Println("收到退出信号，正在关闭...")
+		log.Println("[系统] 收到退出信号，正在关闭...")
 		cancel()
 	}()
 
 	d := daemon.New(&cfg)
-	log.Printf("Epiral CLI 启动 (v0.1.2): id=%s, agent=%s", cfg.ComputerID, cfg.AgentAddr)
+	log.Printf("[系统] Epiral CLI 启动 (v0.1.2): id=%s, agent=%s", cfg.ComputerID, cfg.AgentAddr)
 
 	// 自动重连循环（指数退避：1s → 2s → 4s → ... → 30s 上限，连接成功后重置）
 	backoff := time.Second
@@ -82,14 +82,14 @@ func main() {
 		}
 
 		connDuration := time.Since(connectStart)
-		log.Printf("连接断开: %v (持续 %.0fs)", err, connDuration.Seconds())
+		log.Printf("[连接] 断开: %v (持续 %.0fs)", err, connDuration.Seconds())
 
 		// 如果连接维持了超过 60s，说明之前是正常的，重置退避
 		if connDuration > 60*time.Second {
 			backoff = time.Second
 		}
 
-		log.Printf("%.0fs 后尝试重连...", backoff.Seconds())
+		log.Printf("[连接] %.0fs 后尝试重连...", backoff.Seconds())
 		select {
 		case <-ctx.Done():
 			break
@@ -97,7 +97,7 @@ func main() {
 		}
 
 		// 指数退避
-		backoff = backoff * 2
+		backoff *= 2
 		if backoff > maxBackoff {
 			backoff = maxBackoff
 		}
