@@ -5,8 +5,10 @@ package daemon
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -17,6 +19,7 @@ import (
 	"connectrpc.com/connect"
 	v1 "github.com/epiral/cli/gen/epiral/v1"
 	"github.com/epiral/cli/gen/epiral/v1/epiralv1connect"
+	"golang.org/x/net/http2"
 )
 
 // Config 是 Daemon 的配置
@@ -43,9 +46,17 @@ func New(cfg *Config) *Daemon {
 func (d *Daemon) Run(ctx context.Context) error {
 	log.Printf("连接 Agent: %s", d.config.AgentAddr)
 
-	// 创建 Connect client
+	// 创建 HTTP/2 client（h2c，支持 bidi streaming）
+	h2cClient := &http.Client{
+		Transport: &http2.Transport{
+			AllowHTTP: true,
+			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
+				return net.Dial(network, addr)
+			},
+		},
+	}
 	client := epiralv1connect.NewComputerHubServiceClient(
-		http.DefaultClient,
+		h2cClient,
 		d.config.AgentAddr,
 	)
 
