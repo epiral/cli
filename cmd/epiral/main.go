@@ -16,8 +16,11 @@ import (
 
 func main() {
 	agentAddr := flag.String("agent", "", "Agent 地址 (如 http://localhost:50051)")
-	computerID := flag.String("id", "", "电脑 ID (如 my-pc)")
-	displayName := flag.String("name", "", "显示名称")
+	computerID := flag.String("computer-id", "", "电脑 ID (如 my-pc)")
+	computerDesc := flag.String("computer-desc", "", "电脑描述")
+	browserID := flag.String("browser-id", "", "浏览器 ID (如 my-chrome)")
+	browserDesc := flag.String("browser-desc", "", "浏览器描述")
+	browserPort := flag.Int("browser-port", 19824, "浏览器 SSE 服务端口")
 	allowedPaths := flag.String("paths", "", "允许访问的路径，逗号分隔")
 	token := flag.String("token", "", "认证 token")
 	flag.Parse()
@@ -27,12 +30,10 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
-	if *computerID == "" {
-		hostname, _ := os.Hostname()
-		*computerID = hostname
-	}
-	if *displayName == "" {
-		*displayName = *computerID
+	if *computerID == "" && *browserID == "" {
+		fmt.Fprintln(os.Stderr, "错误: 必须指定 --computer-id 或 --browser-id（至少一个）")
+		flag.Usage()
+		os.Exit(1)
 	}
 
 	var paths []string
@@ -45,7 +46,10 @@ func main() {
 	cfg := daemon.Config{
 		AgentAddr:    *agentAddr,
 		ComputerID:   *computerID,
-		DisplayName:  *displayName,
+		ComputerDesc: *computerDesc,
+		BrowserID:    *browserID,
+		BrowserDesc:  *browserDesc,
+		BrowserPort:  *browserPort,
 		AllowedPaths: paths,
 		Token:        *token,
 	}
@@ -61,7 +65,16 @@ func main() {
 	}()
 
 	d := daemon.New(&cfg)
-	log.Printf("[系统] Epiral CLI 启动 (v0.1.2): id=%s, agent=%s", cfg.ComputerID, cfg.AgentAddr)
+
+	// 启动日志
+	var modes []string
+	if cfg.ComputerID != "" {
+		modes = append(modes, fmt.Sprintf("computer=%s", cfg.ComputerID))
+	}
+	if cfg.BrowserID != "" {
+		modes = append(modes, fmt.Sprintf("browser=%s (port %d)", cfg.BrowserID, cfg.BrowserPort))
+	}
+	log.Printf("[系统] Epiral CLI 启动 (v0.2.0): %s, agent=%s", strings.Join(modes, ", "), cfg.AgentAddr)
 
 	// 自动重连循环（指数退避：1s → 2s → 4s → ... → 30s 上限，连接成功后重置）
 	backoff := time.Second

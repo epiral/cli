@@ -32,6 +32,8 @@ type ConnectRequest struct {
 	//	*ConnectRequest_FileContent
 	//	*ConnectRequest_OpResult
 	//	*ConnectRequest_Ping
+	//	*ConnectRequest_BrowserRegistration
+	//	*ConnectRequest_BrowserExecOutput
 	Payload       isConnectRequest_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -126,11 +128,30 @@ func (x *ConnectRequest) GetPing() *Ping {
 	return nil
 }
 
+func (x *ConnectRequest) GetBrowserRegistration() *BrowserRegistration {
+	if x != nil {
+		if x, ok := x.Payload.(*ConnectRequest_BrowserRegistration); ok {
+			return x.BrowserRegistration
+		}
+	}
+	return nil
+}
+
+func (x *ConnectRequest) GetBrowserExecOutput() *BrowserExecOutput {
+	if x != nil {
+		if x, ok := x.Payload.(*ConnectRequest_BrowserExecOutput); ok {
+			return x.BrowserExecOutput
+		}
+	}
+	return nil
+}
+
 type isConnectRequest_Payload interface {
 	isConnectRequest_Payload()
 }
 
 type ConnectRequest_Registration struct {
+	// Computer
 	Registration *Registration `protobuf:"bytes,10,opt,name=registration,proto3,oneof"`
 }
 
@@ -150,6 +171,15 @@ type ConnectRequest_Ping struct {
 	Ping *Ping `protobuf:"bytes,14,opt,name=ping,proto3,oneof"`
 }
 
+type ConnectRequest_BrowserRegistration struct {
+	// Browser
+	BrowserRegistration *BrowserRegistration `protobuf:"bytes,15,opt,name=browser_registration,json=browserRegistration,proto3,oneof"`
+}
+
+type ConnectRequest_BrowserExecOutput struct {
+	BrowserExecOutput *BrowserExecOutput `protobuf:"bytes,16,opt,name=browser_exec_output,json=browserExecOutput,proto3,oneof"`
+}
+
 func (*ConnectRequest_Registration) isConnectRequest_Payload() {}
 
 func (*ConnectRequest_ExecOutput) isConnectRequest_Payload() {}
@@ -160,11 +190,15 @@ func (*ConnectRequest_OpResult) isConnectRequest_Payload() {}
 
 func (*ConnectRequest_Ping) isConnectRequest_Payload() {}
 
-// 首次连接：我是谁
+func (*ConnectRequest_BrowserRegistration) isConnectRequest_Payload() {}
+
+func (*ConnectRequest_BrowserExecOutput) isConnectRequest_Payload() {}
+
+// 首次连接：我是谁（电脑）
 type Registration struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ComputerId    string                 `protobuf:"bytes,1,opt,name=computer_id,json=computerId,proto3" json:"computer_id,omitempty"`                                               // "my-pc"
-	DisplayName   string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`                                            // "My-PC Mac Studio"
+	ComputerId    string                 `protobuf:"bytes,1,opt,name=computer_id,json=computerId,proto3" json:"computer_id,omitempty"`                                               // --computer-id "my-pc"
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`                                                               // --computer-desc "Mac Studio M2 Ultra"
 	Os            string                 `protobuf:"bytes,3,opt,name=os,proto3" json:"os,omitempty"`                                                                                 // "darwin" | "linux"
 	Arch          string                 `protobuf:"bytes,4,opt,name=arch,proto3" json:"arch,omitempty"`                                                                             // "arm64" | "amd64"
 	Shell         string                 `protobuf:"bytes,5,opt,name=shell,proto3" json:"shell,omitempty"`                                                                           // "/bin/zsh"
@@ -213,9 +247,9 @@ func (x *Registration) GetComputerId() string {
 	return ""
 }
 
-func (x *Registration) GetDisplayName() string {
+func (x *Registration) GetDescription() string {
 	if x != nil {
-		return x.DisplayName
+		return x.Description
 	}
 	return ""
 }
@@ -269,6 +303,67 @@ func (x *Registration) GetToken() string {
 	return ""
 }
 
+// 浏览器上线/下线通知
+type BrowserRegistration struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	BrowserId     string                 `protobuf:"bytes,1,opt,name=browser_id,json=browserId,proto3" json:"browser_id,omitempty"` // --browser-id "my-chrome"
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`              // --browser-desc "My-PC 上的 Chrome"
+	Online        bool                   `protobuf:"varint,3,opt,name=online,proto3" json:"online,omitempty"`                       // true=插件已连接 SSE, false=插件断开
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BrowserRegistration) Reset() {
+	*x = BrowserRegistration{}
+	mi := &file_epiral_v1_epiral_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BrowserRegistration) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BrowserRegistration) ProtoMessage() {}
+
+func (x *BrowserRegistration) ProtoReflect() protoreflect.Message {
+	mi := &file_epiral_v1_epiral_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BrowserRegistration.ProtoReflect.Descriptor instead.
+func (*BrowserRegistration) Descriptor() ([]byte, []int) {
+	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *BrowserRegistration) GetBrowserId() string {
+	if x != nil {
+		return x.BrowserId
+	}
+	return ""
+}
+
+func (x *BrowserRegistration) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *BrowserRegistration) GetOnline() bool {
+	if x != nil {
+		return x.Online
+	}
+	return false
+}
+
 // 命令执行输出（流式：多条消息，done=true 结束）
 type ExecOutput struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -283,7 +378,7 @@ type ExecOutput struct {
 
 func (x *ExecOutput) Reset() {
 	*x = ExecOutput{}
-	mi := &file_epiral_v1_epiral_proto_msgTypes[2]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -295,7 +390,7 @@ func (x *ExecOutput) String() string {
 func (*ExecOutput) ProtoMessage() {}
 
 func (x *ExecOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_epiral_v1_epiral_proto_msgTypes[2]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -308,7 +403,7 @@ func (x *ExecOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecOutput.ProtoReflect.Descriptor instead.
 func (*ExecOutput) Descriptor() ([]byte, []int) {
-	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{2}
+	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ExecOutput) GetStdout() string {
@@ -359,7 +454,7 @@ type FileContent struct {
 
 func (x *FileContent) Reset() {
 	*x = FileContent{}
-	mi := &file_epiral_v1_epiral_proto_msgTypes[3]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -371,7 +466,7 @@ func (x *FileContent) String() string {
 func (*FileContent) ProtoMessage() {}
 
 func (x *FileContent) ProtoReflect() protoreflect.Message {
-	mi := &file_epiral_v1_epiral_proto_msgTypes[3]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -384,7 +479,7 @@ func (x *FileContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileContent.ProtoReflect.Descriptor instead.
 func (*FileContent) Descriptor() ([]byte, []int) {
-	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{3}
+	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *FileContent) GetContent() string {
@@ -426,7 +521,7 @@ type OpResult struct {
 
 func (x *OpResult) Reset() {
 	*x = OpResult{}
-	mi := &file_epiral_v1_epiral_proto_msgTypes[4]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -438,7 +533,7 @@ func (x *OpResult) String() string {
 func (*OpResult) ProtoMessage() {}
 
 func (x *OpResult) ProtoReflect() protoreflect.Message {
-	mi := &file_epiral_v1_epiral_proto_msgTypes[4]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -451,7 +546,7 @@ func (x *OpResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpResult.ProtoReflect.Descriptor instead.
 func (*OpResult) Descriptor() ([]byte, []int) {
-	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{4}
+	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *OpResult) GetSuccess() bool {
@@ -468,6 +563,67 @@ func (x *OpResult) GetError() string {
 	return ""
 }
 
+// 浏览器命令执行结果
+type BrowserExecOutput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ResultJson    string                 `protobuf:"bytes,1,opt,name=result_json,json=resultJson,proto3" json:"result_json,omitempty"` // 插件回传的 Response JSON（bb-browser 协议）
+	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`                             // daemon 级别的错误（插件未连接/超时等）
+	Done          bool                   `protobuf:"varint,3,opt,name=done,proto3" json:"done,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BrowserExecOutput) Reset() {
+	*x = BrowserExecOutput{}
+	mi := &file_epiral_v1_epiral_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BrowserExecOutput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BrowserExecOutput) ProtoMessage() {}
+
+func (x *BrowserExecOutput) ProtoReflect() protoreflect.Message {
+	mi := &file_epiral_v1_epiral_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BrowserExecOutput.ProtoReflect.Descriptor instead.
+func (*BrowserExecOutput) Descriptor() ([]byte, []int) {
+	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *BrowserExecOutput) GetResultJson() string {
+	if x != nil {
+		return x.ResultJson
+	}
+	return ""
+}
+
+func (x *BrowserExecOutput) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *BrowserExecOutput) GetDone() bool {
+	if x != nil {
+		return x.Done
+	}
+	return false
+}
+
 type Ping struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Timestamp     int64                  `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
@@ -477,7 +633,7 @@ type Ping struct {
 
 func (x *Ping) Reset() {
 	*x = Ping{}
-	mi := &file_epiral_v1_epiral_proto_msgTypes[5]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -489,7 +645,7 @@ func (x *Ping) String() string {
 func (*Ping) ProtoMessage() {}
 
 func (x *Ping) ProtoReflect() protoreflect.Message {
-	mi := &file_epiral_v1_epiral_proto_msgTypes[5]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -502,10 +658,54 @@ func (x *Ping) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ping.ProtoReflect.Descriptor instead.
 func (*Ping) Descriptor() ([]byte, []int) {
-	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{5}
+	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Ping) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
+type Pong struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Timestamp     int64                  `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Pong) Reset() {
+	*x = Pong{}
+	mi := &file_epiral_v1_epiral_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Pong) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Pong) ProtoMessage() {}
+
+func (x *Pong) ProtoReflect() protoreflect.Message {
+	mi := &file_epiral_v1_epiral_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Pong.ProtoReflect.Descriptor instead.
+func (*Pong) Descriptor() ([]byte, []int) {
+	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Pong) GetTimestamp() int64 {
 	if x != nil {
 		return x.Timestamp
 	}
@@ -522,6 +722,7 @@ type ConnectResponse struct {
 	//	*ConnectResponse_WriteFile
 	//	*ConnectResponse_EditFile
 	//	*ConnectResponse_Pong
+	//	*ConnectResponse_BrowserExec
 	Payload       isConnectResponse_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -529,7 +730,7 @@ type ConnectResponse struct {
 
 func (x *ConnectResponse) Reset() {
 	*x = ConnectResponse{}
-	mi := &file_epiral_v1_epiral_proto_msgTypes[6]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -541,7 +742,7 @@ func (x *ConnectResponse) String() string {
 func (*ConnectResponse) ProtoMessage() {}
 
 func (x *ConnectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_epiral_v1_epiral_proto_msgTypes[6]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -554,7 +755,7 @@ func (x *ConnectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConnectResponse.ProtoReflect.Descriptor instead.
 func (*ConnectResponse) Descriptor() ([]byte, []int) {
-	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{6}
+	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ConnectResponse) GetRequestId() string {
@@ -616,11 +817,21 @@ func (x *ConnectResponse) GetPong() *Pong {
 	return nil
 }
 
+func (x *ConnectResponse) GetBrowserExec() *BrowserExecRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*ConnectResponse_BrowserExec); ok {
+			return x.BrowserExec
+		}
+	}
+	return nil
+}
+
 type isConnectResponse_Payload interface {
 	isConnectResponse_Payload()
 }
 
 type ConnectResponse_Exec struct {
+	// Computer
 	Exec *ExecRequest `protobuf:"bytes,10,opt,name=exec,proto3,oneof"`
 }
 
@@ -640,6 +851,11 @@ type ConnectResponse_Pong struct {
 	Pong *Pong `protobuf:"bytes,14,opt,name=pong,proto3,oneof"`
 }
 
+type ConnectResponse_BrowserExec struct {
+	// Browser
+	BrowserExec *BrowserExecRequest `protobuf:"bytes,15,opt,name=browser_exec,json=browserExec,proto3,oneof"`
+}
+
 func (*ConnectResponse_Exec) isConnectResponse_Payload() {}
 
 func (*ConnectResponse_ReadFile) isConnectResponse_Payload() {}
@@ -649,6 +865,8 @@ func (*ConnectResponse_WriteFile) isConnectResponse_Payload() {}
 func (*ConnectResponse_EditFile) isConnectResponse_Payload() {}
 
 func (*ConnectResponse_Pong) isConnectResponse_Payload() {}
+
+func (*ConnectResponse_BrowserExec) isConnectResponse_Payload() {}
 
 // 执行命令
 type ExecRequest struct {
@@ -663,7 +881,7 @@ type ExecRequest struct {
 
 func (x *ExecRequest) Reset() {
 	*x = ExecRequest{}
-	mi := &file_epiral_v1_epiral_proto_msgTypes[7]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -675,7 +893,7 @@ func (x *ExecRequest) String() string {
 func (*ExecRequest) ProtoMessage() {}
 
 func (x *ExecRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_epiral_v1_epiral_proto_msgTypes[7]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -688,7 +906,7 @@ func (x *ExecRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecRequest.ProtoReflect.Descriptor instead.
 func (*ExecRequest) Descriptor() ([]byte, []int) {
-	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{7}
+	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ExecRequest) GetCommand() string {
@@ -732,7 +950,7 @@ type ReadFileRequest struct {
 
 func (x *ReadFileRequest) Reset() {
 	*x = ReadFileRequest{}
-	mi := &file_epiral_v1_epiral_proto_msgTypes[8]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -744,7 +962,7 @@ func (x *ReadFileRequest) String() string {
 func (*ReadFileRequest) ProtoMessage() {}
 
 func (x *ReadFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_epiral_v1_epiral_proto_msgTypes[8]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -757,7 +975,7 @@ func (x *ReadFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadFileRequest.ProtoReflect.Descriptor instead.
 func (*ReadFileRequest) Descriptor() ([]byte, []int) {
-	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{8}
+	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ReadFileRequest) GetPath() string {
@@ -799,7 +1017,7 @@ type WriteFileRequest struct {
 
 func (x *WriteFileRequest) Reset() {
 	*x = WriteFileRequest{}
-	mi := &file_epiral_v1_epiral_proto_msgTypes[9]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -811,7 +1029,7 @@ func (x *WriteFileRequest) String() string {
 func (*WriteFileRequest) ProtoMessage() {}
 
 func (x *WriteFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_epiral_v1_epiral_proto_msgTypes[9]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -824,7 +1042,7 @@ func (x *WriteFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteFileRequest.ProtoReflect.Descriptor instead.
 func (*WriteFileRequest) Descriptor() ([]byte, []int) {
-	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{9}
+	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *WriteFileRequest) GetPath() string {
@@ -854,7 +1072,7 @@ type EditFileRequest struct {
 
 func (x *EditFileRequest) Reset() {
 	*x = EditFileRequest{}
-	mi := &file_epiral_v1_epiral_proto_msgTypes[10]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -866,7 +1084,7 @@ func (x *EditFileRequest) String() string {
 func (*EditFileRequest) ProtoMessage() {}
 
 func (x *EditFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_epiral_v1_epiral_proto_msgTypes[10]
+	mi := &file_epiral_v1_epiral_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -879,7 +1097,7 @@ func (x *EditFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditFileRequest.ProtoReflect.Descriptor instead.
 func (*EditFileRequest) Descriptor() ([]byte, []int) {
-	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{10}
+	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *EditFileRequest) GetPath() string {
@@ -910,28 +1128,30 @@ func (x *EditFileRequest) GetReplaceAll() bool {
 	return false
 }
 
-type Pong struct {
+// 浏览器命令（转发给插件执行）
+type BrowserExecRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Timestamp     int64                  `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	CommandJson   string                 `protobuf:"bytes,1,opt,name=command_json,json=commandJson,proto3" json:"command_json,omitempty"` // 结构化命令 JSON（bb-browser Request 协议）
+	TimeoutMs     int32                  `protobuf:"varint,2,opt,name=timeout_ms,json=timeoutMs,proto3" json:"timeout_ms,omitempty"`      // 超时毫秒（0 = 默认 30000）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Pong) Reset() {
-	*x = Pong{}
-	mi := &file_epiral_v1_epiral_proto_msgTypes[11]
+func (x *BrowserExecRequest) Reset() {
+	*x = BrowserExecRequest{}
+	mi := &file_epiral_v1_epiral_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Pong) String() string {
+func (x *BrowserExecRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Pong) ProtoMessage() {}
+func (*BrowserExecRequest) ProtoMessage() {}
 
-func (x *Pong) ProtoReflect() protoreflect.Message {
-	mi := &file_epiral_v1_epiral_proto_msgTypes[11]
+func (x *BrowserExecRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_epiral_v1_epiral_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -942,14 +1162,21 @@ func (x *Pong) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Pong.ProtoReflect.Descriptor instead.
-func (*Pong) Descriptor() ([]byte, []int) {
-	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{11}
+// Deprecated: Use BrowserExecRequest.ProtoReflect.Descriptor instead.
+func (*BrowserExecRequest) Descriptor() ([]byte, []int) {
+	return file_epiral_v1_epiral_proto_rawDescGZIP(), []int{14}
 }
 
-func (x *Pong) GetTimestamp() int64 {
+func (x *BrowserExecRequest) GetCommandJson() string {
 	if x != nil {
-		return x.Timestamp
+		return x.CommandJson
+	}
+	return ""
+}
+
+func (x *BrowserExecRequest) GetTimeoutMs() int32 {
+	if x != nil {
+		return x.TimeoutMs
 	}
 	return 0
 }
@@ -958,7 +1185,7 @@ var File_epiral_v1_epiral_proto protoreflect.FileDescriptor
 
 const file_epiral_v1_epiral_proto_rawDesc = "" +
 	"\n" +
-	"\x16epiral/v1/epiral.proto\x12\tepiral.v1\"\xcb\x02\n" +
+	"\x16epiral/v1/epiral.proto\x12\tepiral.v1\"\xf0\x03\n" +
 	"\x0eConnectRequest\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12=\n" +
@@ -968,12 +1195,14 @@ const file_epiral_v1_epiral_proto_rawDesc = "" +
 	"execOutput\x12;\n" +
 	"\ffile_content\x18\f \x01(\v2\x16.epiral.v1.FileContentH\x00R\vfileContent\x122\n" +
 	"\top_result\x18\r \x01(\v2\x13.epiral.v1.OpResultH\x00R\bopResult\x12%\n" +
-	"\x04ping\x18\x0e \x01(\v2\x0f.epiral.v1.PingH\x00R\x04pingB\t\n" +
-	"\apayload\"\xd6\x02\n" +
+	"\x04ping\x18\x0e \x01(\v2\x0f.epiral.v1.PingH\x00R\x04ping\x12S\n" +
+	"\x14browser_registration\x18\x0f \x01(\v2\x1e.epiral.v1.BrowserRegistrationH\x00R\x13browserRegistration\x12N\n" +
+	"\x13browser_exec_output\x18\x10 \x01(\v2\x1c.epiral.v1.BrowserExecOutputH\x00R\x11browserExecOutputB\t\n" +
+	"\apayload\"\xd5\x02\n" +
 	"\fRegistration\x12\x1f\n" +
 	"\vcomputer_id\x18\x01 \x01(\tR\n" +
-	"computerId\x12!\n" +
-	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x0e\n" +
+	"computerId\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x0e\n" +
 	"\x02os\x18\x03 \x01(\tR\x02os\x12\x12\n" +
 	"\x04arch\x18\x04 \x01(\tR\x04arch\x12\x14\n" +
 	"\x05shell\x18\x05 \x01(\tR\x05shell\x12\x19\n" +
@@ -984,7 +1213,12 @@ const file_epiral_v1_epiral_proto_rawDesc = "" +
 	"\n" +
 	"ToolsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x87\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"n\n" +
+	"\x13BrowserRegistration\x12\x1d\n" +
+	"\n" +
+	"browser_id\x18\x01 \x01(\tR\tbrowserId\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x16\n" +
+	"\x06online\x18\x03 \x01(\bR\x06online\"\x87\x01\n" +
 	"\n" +
 	"ExecOutput\x12\x16\n" +
 	"\x06stdout\x18\x01 \x01(\tR\x06stdout\x12\x16\n" +
@@ -1000,9 +1234,16 @@ const file_epiral_v1_epiral_proto_rawDesc = "" +
 	"\x05error\x18\x04 \x01(\tR\x05error\":\n" +
 	"\bOpResult\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\"$\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\"^\n" +
+	"\x11BrowserExecOutput\x12\x1f\n" +
+	"\vresult_json\x18\x01 \x01(\tR\n" +
+	"resultJson\x12\x14\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\x12\x12\n" +
+	"\x04done\x18\x03 \x01(\bR\x04done\"$\n" +
 	"\x04Ping\x12\x1c\n" +
-	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp\"\xc4\x02\n" +
+	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp\"$\n" +
+	"\x04Pong\x12\x1c\n" +
+	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp\"\x88\x03\n" +
 	"\x0fConnectResponse\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12,\n" +
@@ -1012,7 +1253,8 @@ const file_epiral_v1_epiral_proto_rawDesc = "" +
 	"\n" +
 	"write_file\x18\f \x01(\v2\x1b.epiral.v1.WriteFileRequestH\x00R\twriteFile\x129\n" +
 	"\tedit_file\x18\r \x01(\v2\x1a.epiral.v1.EditFileRequestH\x00R\beditFile\x12%\n" +
-	"\x04pong\x18\x0e \x01(\v2\x0f.epiral.v1.PongH\x00R\x04pongB\t\n" +
+	"\x04pong\x18\x0e \x01(\v2\x0f.epiral.v1.PongH\x00R\x04pong\x12B\n" +
+	"\fbrowser_exec\x18\x0f \x01(\v2\x1d.epiral.v1.BrowserExecRequestH\x00R\vbrowserExecB\t\n" +
 	"\apayload\"\x7f\n" +
 	"\vExecRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\tR\acommand\x12\x18\n" +
@@ -1036,10 +1278,13 @@ const file_epiral_v1_epiral_proto_rawDesc = "" +
 	"\n" +
 	"new_string\x18\x03 \x01(\tR\tnewString\x12\x1f\n" +
 	"\vreplace_all\x18\x04 \x01(\bR\n" +
-	"replaceAll\"$\n" +
-	"\x04Pong\x12\x1c\n" +
-	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp2Z\n" +
-	"\x12ComputerHubService\x12D\n" +
+	"replaceAll\"V\n" +
+	"\x12BrowserExecRequest\x12!\n" +
+	"\fcommand_json\x18\x01 \x01(\tR\vcommandJson\x12\x1d\n" +
+	"\n" +
+	"timeout_ms\x18\x02 \x01(\x05R\ttimeoutMs2R\n" +
+	"\n" +
+	"HubService\x12D\n" +
 	"\aConnect\x12\x19.epiral.v1.ConnectRequest\x1a\x1a.epiral.v1.ConnectResponse(\x010\x01B\x8f\x01\n" +
 	"\rcom.epiral.v1B\vEpiralProtoP\x01Z,github.com/epiral/cli/gen/epiral/v1;epiralv1\xa2\x02\x03EXX\xaa\x02\tEpiral.V1\xca\x02\tEpiral\\V1\xe2\x02\x15Epiral\\V1\\GPBMetadata\xea\x02\n" +
 	"Epiral::V1b\x06proto3"
@@ -1056,41 +1301,47 @@ func file_epiral_v1_epiral_proto_rawDescGZIP() []byte {
 	return file_epiral_v1_epiral_proto_rawDescData
 }
 
-var file_epiral_v1_epiral_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_epiral_v1_epiral_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_epiral_v1_epiral_proto_goTypes = []any{
-	(*ConnectRequest)(nil),   // 0: epiral.v1.ConnectRequest
-	(*Registration)(nil),     // 1: epiral.v1.Registration
-	(*ExecOutput)(nil),       // 2: epiral.v1.ExecOutput
-	(*FileContent)(nil),      // 3: epiral.v1.FileContent
-	(*OpResult)(nil),         // 4: epiral.v1.OpResult
-	(*Ping)(nil),             // 5: epiral.v1.Ping
-	(*ConnectResponse)(nil),  // 6: epiral.v1.ConnectResponse
-	(*ExecRequest)(nil),      // 7: epiral.v1.ExecRequest
-	(*ReadFileRequest)(nil),  // 8: epiral.v1.ReadFileRequest
-	(*WriteFileRequest)(nil), // 9: epiral.v1.WriteFileRequest
-	(*EditFileRequest)(nil),  // 10: epiral.v1.EditFileRequest
-	(*Pong)(nil),             // 11: epiral.v1.Pong
-	nil,                      // 12: epiral.v1.Registration.ToolsEntry
+	(*ConnectRequest)(nil),      // 0: epiral.v1.ConnectRequest
+	(*Registration)(nil),        // 1: epiral.v1.Registration
+	(*BrowserRegistration)(nil), // 2: epiral.v1.BrowserRegistration
+	(*ExecOutput)(nil),          // 3: epiral.v1.ExecOutput
+	(*FileContent)(nil),         // 4: epiral.v1.FileContent
+	(*OpResult)(nil),            // 5: epiral.v1.OpResult
+	(*BrowserExecOutput)(nil),   // 6: epiral.v1.BrowserExecOutput
+	(*Ping)(nil),                // 7: epiral.v1.Ping
+	(*Pong)(nil),                // 8: epiral.v1.Pong
+	(*ConnectResponse)(nil),     // 9: epiral.v1.ConnectResponse
+	(*ExecRequest)(nil),         // 10: epiral.v1.ExecRequest
+	(*ReadFileRequest)(nil),     // 11: epiral.v1.ReadFileRequest
+	(*WriteFileRequest)(nil),    // 12: epiral.v1.WriteFileRequest
+	(*EditFileRequest)(nil),     // 13: epiral.v1.EditFileRequest
+	(*BrowserExecRequest)(nil),  // 14: epiral.v1.BrowserExecRequest
+	nil,                         // 15: epiral.v1.Registration.ToolsEntry
 }
 var file_epiral_v1_epiral_proto_depIdxs = []int32{
 	1,  // 0: epiral.v1.ConnectRequest.registration:type_name -> epiral.v1.Registration
-	2,  // 1: epiral.v1.ConnectRequest.exec_output:type_name -> epiral.v1.ExecOutput
-	3,  // 2: epiral.v1.ConnectRequest.file_content:type_name -> epiral.v1.FileContent
-	4,  // 3: epiral.v1.ConnectRequest.op_result:type_name -> epiral.v1.OpResult
-	5,  // 4: epiral.v1.ConnectRequest.ping:type_name -> epiral.v1.Ping
-	12, // 5: epiral.v1.Registration.tools:type_name -> epiral.v1.Registration.ToolsEntry
-	7,  // 6: epiral.v1.ConnectResponse.exec:type_name -> epiral.v1.ExecRequest
-	8,  // 7: epiral.v1.ConnectResponse.read_file:type_name -> epiral.v1.ReadFileRequest
-	9,  // 8: epiral.v1.ConnectResponse.write_file:type_name -> epiral.v1.WriteFileRequest
-	10, // 9: epiral.v1.ConnectResponse.edit_file:type_name -> epiral.v1.EditFileRequest
-	11, // 10: epiral.v1.ConnectResponse.pong:type_name -> epiral.v1.Pong
-	0,  // 11: epiral.v1.ComputerHubService.Connect:input_type -> epiral.v1.ConnectRequest
-	6,  // 12: epiral.v1.ComputerHubService.Connect:output_type -> epiral.v1.ConnectResponse
-	12, // [12:13] is the sub-list for method output_type
-	11, // [11:12] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	3,  // 1: epiral.v1.ConnectRequest.exec_output:type_name -> epiral.v1.ExecOutput
+	4,  // 2: epiral.v1.ConnectRequest.file_content:type_name -> epiral.v1.FileContent
+	5,  // 3: epiral.v1.ConnectRequest.op_result:type_name -> epiral.v1.OpResult
+	7,  // 4: epiral.v1.ConnectRequest.ping:type_name -> epiral.v1.Ping
+	2,  // 5: epiral.v1.ConnectRequest.browser_registration:type_name -> epiral.v1.BrowserRegistration
+	6,  // 6: epiral.v1.ConnectRequest.browser_exec_output:type_name -> epiral.v1.BrowserExecOutput
+	15, // 7: epiral.v1.Registration.tools:type_name -> epiral.v1.Registration.ToolsEntry
+	10, // 8: epiral.v1.ConnectResponse.exec:type_name -> epiral.v1.ExecRequest
+	11, // 9: epiral.v1.ConnectResponse.read_file:type_name -> epiral.v1.ReadFileRequest
+	12, // 10: epiral.v1.ConnectResponse.write_file:type_name -> epiral.v1.WriteFileRequest
+	13, // 11: epiral.v1.ConnectResponse.edit_file:type_name -> epiral.v1.EditFileRequest
+	8,  // 12: epiral.v1.ConnectResponse.pong:type_name -> epiral.v1.Pong
+	14, // 13: epiral.v1.ConnectResponse.browser_exec:type_name -> epiral.v1.BrowserExecRequest
+	0,  // 14: epiral.v1.HubService.Connect:input_type -> epiral.v1.ConnectRequest
+	9,  // 15: epiral.v1.HubService.Connect:output_type -> epiral.v1.ConnectResponse
+	15, // [15:16] is the sub-list for method output_type
+	14, // [14:15] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_epiral_v1_epiral_proto_init() }
@@ -1104,13 +1355,16 @@ func file_epiral_v1_epiral_proto_init() {
 		(*ConnectRequest_FileContent)(nil),
 		(*ConnectRequest_OpResult)(nil),
 		(*ConnectRequest_Ping)(nil),
+		(*ConnectRequest_BrowserRegistration)(nil),
+		(*ConnectRequest_BrowserExecOutput)(nil),
 	}
-	file_epiral_v1_epiral_proto_msgTypes[6].OneofWrappers = []any{
+	file_epiral_v1_epiral_proto_msgTypes[9].OneofWrappers = []any{
 		(*ConnectResponse_Exec)(nil),
 		(*ConnectResponse_ReadFile)(nil),
 		(*ConnectResponse_WriteFile)(nil),
 		(*ConnectResponse_EditFile)(nil),
 		(*ConnectResponse_Pong)(nil),
+		(*ConnectResponse_BrowserExec)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1118,7 +1372,7 @@ func file_epiral_v1_epiral_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_epiral_v1_epiral_proto_rawDesc), len(file_epiral_v1_epiral_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
