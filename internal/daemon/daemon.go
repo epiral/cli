@@ -48,7 +48,7 @@ func New(cfg *Config) *Daemon {
 
 // Run 启动 Daemon，连接 Agent 并处理命令
 func (d *Daemon) Run(ctx context.Context) error {
-	log.Printf("连接 Agent: %s", d.config.AgentAddr)
+	log.Printf("[连接] 正在连接 Agent: %s", d.config.AgentAddr)
 
 	// 每次连接都创建新的 HTTP/2 transport，避免复用已损坏的连接
 	// ReadIdleTimeout: 30s 无数据时发送 HTTP/2 PING 帧
@@ -81,7 +81,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}); err != nil {
 		return fmt.Errorf("发送 Registration 失败: %w", err)
 	}
-	log.Printf("已注册: %s (%s/%s)", d.config.ComputerID, reg.Os, reg.Arch)
+	log.Printf("[连接] 已注册: %s (%s/%s)", d.config.ComputerID, reg.Os, reg.Arch)
 
 	// 初始化 lastPong
 	d.pongMu.Lock()
@@ -92,6 +92,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 	heartbeatCtx, heartbeatCancel := context.WithCancelCause(ctx)
 	defer heartbeatCancel(nil)
 	go d.heartbeat(heartbeatCtx, heartbeatCancel, 3*time.Second)
+
+	log.Println("[连接] 等待 Agent 下发命令...")
 
 	// 主循环：接收命令
 	for {
@@ -123,7 +125,7 @@ func (d *Daemon) handleMessage(ctx context.Context, msg *v1.ConnectResponse) {
 		d.lastPong = time.Now()
 		d.pongMu.Unlock()
 	default:
-		log.Printf("未知消息类型: %T", msg.Payload)
+		log.Printf("[连接] 未知消息类型: %T", msg.Payload)
 	}
 }
 
@@ -202,7 +204,7 @@ func (d *Daemon) heartbeat(ctx context.Context, cancel context.CancelCauseFunc, 
 				},
 			})
 			if err != nil {
-				log.Printf("心跳发送失败: %v", err)
+				log.Printf("[心跳] 发送失败: %v", err)
 				cancel(fmt.Errorf("心跳发送失败: %w", err))
 				return
 			}
@@ -211,7 +213,7 @@ func (d *Daemon) heartbeat(ctx context.Context, cancel context.CancelCauseFunc, 
 			elapsed := time.Since(d.lastPong)
 			d.pongMu.Unlock()
 			if elapsed > pongTimeout {
-				log.Printf("Pong 超时 (%.0fs 未收到回应)，主动断连", elapsed.Seconds())
+				log.Printf("[心跳] Pong 超时 (%.0fs 未收到回应)，主动断连", elapsed.Seconds())
 				cancel(fmt.Errorf("Pong 超时 (%.0fs)", elapsed.Seconds()))
 				return
 			}

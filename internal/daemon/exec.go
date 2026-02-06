@@ -17,6 +17,14 @@ const defaultTimeoutMs = 30000
 
 // handleExec 执行命令，流式返回输出
 func (d *Daemon) handleExec(ctx context.Context, requestID string, req *v1.ExecRequest) {
+	// 命令摘要（截断过长的命令）
+	cmdSummary := req.Command
+	if len(cmdSummary) > 80 {
+		cmdSummary = cmdSummary[:77] + "..."
+	}
+	log.Printf("[执行] $ %s", cmdSummary)
+	execStart := time.Now()
+
 	timeoutMs := req.TimeoutMs
 	if timeoutMs <= 0 {
 		timeoutMs = defaultTimeoutMs
@@ -31,6 +39,7 @@ func (d *Daemon) handleExec(ctx context.Context, requestID string, req *v1.ExecR
 		workdir, _ = os.UserHomeDir()
 	}
 	if !d.isPathAllowed(workdir) {
+		log.Printf("[执行] 拒绝: 路径不允许 %s", workdir)
 		d.sendExecDone(requestID, "", fmt.Sprintf("路径不允许: %s", workdir), 1, workdir)
 		return
 	}
@@ -71,7 +80,7 @@ func (d *Daemon) handleExec(ctx context.Context, requestID string, req *v1.ExecR
 					},
 				},
 			}); err != nil {
-				log.Printf("发送 stdout 失败: %v", err)
+				log.Printf("[执行] 发送 stdout 失败: %v", err)
 				return
 			}
 		}
@@ -92,6 +101,13 @@ func (d *Daemon) handleExec(ctx context.Context, requestID string, req *v1.ExecR
 		}
 	}
 
+	elapsed := time.Since(execStart)
+	if exitCode == 0 {
+		log.Printf("[执行] 完成 (%.1fs)", elapsed.Seconds())
+	} else {
+		log.Printf("[执行] 失败 exit=%d (%.1fs)", exitCode, elapsed.Seconds())
+	}
+
 	d.sendExecDone(requestID, "", string(stderrBytes), exitCode, workdir)
 }
 
@@ -109,6 +125,6 @@ func (d *Daemon) sendExecDone(requestID, stdout, stderr string, exitCode int32, 
 			},
 		},
 	}); err != nil {
-		log.Printf("发送 ExecDone 失败: %v", err)
+		log.Printf("[执行] 发送结果失败: %v", err)
 	}
 }
