@@ -208,7 +208,16 @@ func (m *Manager) run(ctx context.Context) {
 		m.setState(StateConnecting)
 
 		connectStart := time.Now()
-		err := d.Run(ctx)
+		var err error
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("panic: %v", r)
+					log.Printf("[连接] panic 已恢复: %v", r)
+				}
+			}()
+			err = d.Run(ctx)
+		}()
 		if err == nil || ctx.Err() != nil {
 			return
 		}
