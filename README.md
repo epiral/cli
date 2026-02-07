@@ -2,7 +2,7 @@
 
 # Epiral CLI
 
-**一个二进制，任何机器变成 Agent 的延伸**
+**即装即用，任何电脑或浏览器变成 Agent 的延伸**
 
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License](https://img.shields.io/badge/License-BSL%201.1-orange.svg)](LICENSE)
@@ -13,9 +13,9 @@
 
 ---
 
-一个二进制，你的机器就成了 [Epiral Agent](https://github.com/epiral/agent) 的延伸。工作站、VPS、Docker 沙箱——Agent 不关心是什么，只看到可用资源。
+即装即用，你的机器就成了 [Epiral Agent](https://github.com/epiral/agent) 的延伸。工作站、VPS、Docker 沙箱——Agent 不关心是什么，只看到可用资源。
 
-一个进程同时注册两种资源：**Computer**（shell + 文件）和 **Browser**（网页自动化，通过 [bb-browser](https://github.com/yan5xu/bb-browser) Chrome 扩展）。内置 Web 管理面板，配置、日志、状态一目了然。
+一个程序同时注册两种资源：**Computer**（shell + 文件）和 **Browser**（网页自动化，通过 [bb-browser](https://github.com/yan5xu/bb-browser) Chrome 扩展）。内置 Web 管理面板，配置、日志、状态一目了然。
 
 ```
                       Epiral Agent
@@ -41,13 +41,13 @@
    └─────────────────┘
 ```
 
-## 为什么
+## 为什么 — Hot-Plug Resources
 
 Agent 需要操作真实机器。但机器在 NAT 后面，不同网络，不同地方。
 
-**反向连接**：CLI 主动连 Agent，无需端口转发，无需 SSH。Agent 看到所有注册的机器，命令派发到任何一台。
+**反向连接**：CLI 主动连 Agent，无需端口转发，无需 SSH。Agent 看到所有注册的机器，命令派发到任何一台。资源随时接入、随时断开——真正的热插拔。
 
-同时连多台，不同机器做不同事：
+同时连多台，不同机器做不同事——**Form Follows Resources**，资源决定形态：
 
 | 场景 | 机器 | 说明 |
 |------|------|------|
