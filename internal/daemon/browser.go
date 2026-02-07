@@ -105,6 +105,13 @@ func (b *BrowserBridge) Stop() {
 	b.pendingMu.Unlock()
 }
 
+// isConnected 返回 SSE 插件是否已连接
+func (b *BrowserBridge) isConnected() bool {
+	b.sseMu.Lock()
+	defer b.sseMu.Unlock()
+	return b.connected
+}
+
 // HandleBrowserExec 处理 Agent 下发的浏览器命令
 func (b *BrowserBridge) HandleBrowserExec(requestID string, req *v1.BrowserExecRequest) {
 	log.Printf("[浏览器] 收到命令: %s", truncate(req.CommandJson, 80))
