@@ -13,9 +13,9 @@
 
 ---
 
-A few flags, and your machine becomes an extension of [Epiral Agent](https://github.com/epiral/agent). Workstation, VPS, Docker sandbox — the Agent doesn't care what it is, just that it's available.
+One binary, and your machine becomes an extension of [Epiral Agent](https://github.com/epiral/agent). Workstation, VPS, Docker sandbox — the Agent doesn't care what it is, just that it's available.
 
-One process registers two resource types: **Computer** (shell + files) and **Browser** (web automation via the [bb-browser](https://github.com/yan5xu/bb-browser) Chrome extension).
+One process registers two resource types: **Computer** (shell + files) and **Browser** (web automation via the [bb-browser](https://github.com/yan5xu/bb-browser) Chrome extension). Built-in web management panel for configuration, logs, and status at a glance.
 
 ```
                       Epiral Agent
@@ -35,6 +35,7 @@ One process registers two resource types: **Computer** (shell + files) and **Bro
    │                  │           │                  │
    │  Computer ✓      │           │  Computer ✓      │
    │  Browser  ✓      │           │                  │
+   │  Web UI :19800   │           │  Web UI :19800   │
    │    ↕ SSE         │           └─────────────────┘
    │  Chrome Extension│
    └─────────────────┘
@@ -67,7 +68,19 @@ cd cli && make build
 # Binary at ./bin/epiral
 ```
 
-### Run
+### Run (Recommended: Web Panel)
+
+```bash
+# Start with the web management panel
+./bin/epiral start
+
+# With custom config and port (multi-instance)
+./bin/epiral start --config ~/.epiral/dev.yaml --port 19802
+```
+
+Open `http://localhost:19800`, fill in Agent address and Computer/Browser IDs on the Config page, click Save & Restart.
+
+### Run (Direct Mode)
 
 ```bash
 # Computer only (shell + file operations)
@@ -85,9 +98,46 @@ cd cli && make build
   --paths /home/me/projects
 ```
 
-That's it. Your machine is now available to the Agent.
+## Web Management Panel
+
+`epiral start` launches an embedded web panel (default port 19800):
+
+| Page | Features |
+|------|----------|
+| **Dashboard** | Connection status, Computer/Browser info, uptime, reconnect count |
+| **Config** | Visual configuration for Agent/Computer/Browser, Save & Restart |
+| **Logs** | Real-time log stream (SSE), level filtering, scroll and pause |
+
+Configuration is persisted to `~/.epiral/config.yaml`. Changes automatically restart the daemon — no manual intervention needed.
+
+### Multi-Instance
+
+Run multiple CLI instances on the same machine (e.g., connecting to both dev and prod Agents):
+
+```bash
+# Dev instance
+./bin/epiral start --config ~/.epiral/dev.yaml --port 19800
+
+# Prod instance
+./bin/epiral start --config ~/.epiral/prod.yaml --port 19801
+```
+
+Each instance has its own config file, web port, and Browser SSE port.
 
 ## Usage
+
+### `epiral start` (Recommended)
+
+```
+epiral start [flags]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--config` | `~/.epiral/config.yaml` | Config file path |
+| `--port` | 19800 | Web panel port |
+
+### `epiral` (Direct Mode)
 
 ```
 epiral [flags]
@@ -119,7 +169,7 @@ epiral [flags]
 
 ### Browser Bridge
 
-When `--browser-id` is specified, the CLI starts an embedded HTTP server bridging the [bb-browser](https://github.com/yan5xu/bb-browser) Chrome extension:
+When `--browser-id` is specified (or configured in the web panel), the CLI starts an embedded HTTP server bridging the [bb-browser](https://github.com/yan5xu/bb-browser) Chrome extension:
 
 | Endpoint | Description |
 |----------|-------------|
@@ -174,25 +224,37 @@ Each reconnect creates a fresh HTTP/2 transport to avoid reusing broken connecti
 ```
 epiral-cli/
 ├── cmd/epiral/
-│   └── main.go              # Entry: flags, signals, reconnect loop
-├── internal/daemon/
-│   ├── daemon.go             # Connect, register, heartbeat, dispatch
-│   ├── exec.go               # Streaming shell execution
-│   ├── fileops.go            # Read / write / edit files
-│   └── browser.go            # Browser bridge: SSE server + forwarding
+│   └── main.go              # Entry: subcommand dispatch, signals
+├── internal/
+│   ├── config/
+│   │   └── config.go         # YAML config load/save/Store
+│   ├── daemon/
+│   │   ├── daemon.go          # Connect, register, heartbeat, dispatch
+│   │   ├── manager.go         # Daemon lifecycle (start/stop/restart)
+│   │   ├── exec.go            # Streaming shell execution
+│   │   ├── fileops.go         # Read / write / edit files
+│   │   └── browser.go         # Browser bridge: SSE server + forwarding
+│   ├── logger/
+│   │   └── logger.go          # Ring buffer logging + SSE subscriptions
+│   └── webserver/
+│       └── server.go          # Web panel (REST API + embedded SPA)
+├── web/                       # React + Vite + Tailwind frontend source
 ├── proto/epiral/v1/
-│   └── epiral.proto          # Protocol definition
-├── gen/                      # Generated protobuf + Connect RPC code
-├── Makefile                  # build · generate · lint · check
-└── .golangci.yml             # 14 linters configured
+│   └── epiral.proto           # Protocol definition
+├── gen/                       # Generated protobuf + Connect RPC code
+├── Makefile                   # build · web · generate · lint · check
+└── .golangci.yml              # 14 linters configured
 ```
 
-~1100 lines of hand-written Go. The rest is generated.
+~2000 lines of hand-written Go. The rest is generated.
 
 ## Development
 
 ```bash
-make build      # Compile to ./bin/epiral
+make build      # Full build (frontend + Go)
+make build-go   # Go only (uses existing dist)
+make web        # Frontend only
+make dev        # Frontend dev mode (vite dev server)
 make check      # Format + lint + build (pre-commit)
 make generate   # Regenerate protobuf code (requires buf)
 make clean      # Remove build artifacts
@@ -201,6 +263,7 @@ make clean      # Remove build artifacts
 ### Requirements
 
 - Go 1.25+
+- Node.js 22+ / pnpm — frontend build
 - [buf](https://buf.build/) for protobuf code generation
 - [golangci-lint](https://golangci-lint.run/) for linting
 
@@ -208,6 +271,9 @@ make clean      # Remove build artifacts
 
 - [x] Computer: shell execution + file operations
 - [x] Browser bridge (SSE-based Chrome extension integration)
+- [x] Web management panel (Dashboard / Config / Logs)
+- [x] YAML config persistence
+- [x] Multi-instance support (`--config` + `--port`)
 - [ ] Persistent shell sessions (shell pool)
 - [ ] mTLS / token authentication
 - [ ] systemd / launchd service files
