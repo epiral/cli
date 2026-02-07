@@ -37,12 +37,13 @@ type Config struct {
 
 // Daemon 是核心结构
 type Daemon struct {
-	config   Config
-	stream   *connect.BidiStreamForClient[v1.ConnectRequest, v1.ConnectResponse]
-	sendMu   sync.Mutex // 保护 stream.Send 的并发安全
-	lastPong time.Time
-	pongMu   sync.Mutex
-	browser  *BrowserBridge // 浏览器桥接（nil = 未启用）
+	config      Config
+	stream      *connect.BidiStreamForClient[v1.ConnectRequest, v1.ConnectResponse]
+	sendMu      sync.Mutex // 保护 stream.Send 的并发安全
+	lastPong    time.Time
+	pongMu      sync.Mutex
+	browser     *BrowserBridge // 浏览器桥接（nil = 未启用）
+	OnConnected func()         // 连接成功回调（Manager 使用）
 }
 
 // New 创建一个新的 Daemon
@@ -106,6 +107,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 	heartbeatCtx, heartbeatCancel := context.WithCancelCause(ctx)
 	defer heartbeatCancel(nil)
 	go d.heartbeat(heartbeatCtx, heartbeatCancel, 3*time.Second)
+
+	// 通知 Manager 连接成功
+	if d.OnConnected != nil {
+		d.OnConnected()
+	}
 
 	log.Println("[连接] 等待 Agent 下发命令...")
 

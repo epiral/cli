@@ -6,3 +6,10 @@ bin/
 *.test
 *.out
 .DS_Store
+
+# 前端
+web/node_modules/
+web/dist/
+
+# 不忽略 embed placeholder
+!internal/webserver/dist/
