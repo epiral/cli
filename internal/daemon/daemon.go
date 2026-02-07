@@ -88,14 +88,24 @@ func (d *Daemon) Run(ctx context.Context) error {
 		log.Printf("[连接] 已注册电脑: %s (%s/%s)", d.config.ComputerID, reg.Os, reg.Arch)
 	}
 
-	// 条件注册: Browser — 启动 SSE 服务并等待插件连接
+	// 条件注册: Browser
 	if d.config.BrowserID != "" {
+		// Manager 模式下 BrowserID 被清空，不会走这里
 		d.browser = NewBrowserBridge(d.config.BrowserID, d.config.BrowserDesc, d.config.BrowserPort, d)
 		if err := d.browser.Start(ctx); err != nil {
 			return fmt.Errorf("启动浏览器 SSE 服务失败: %w", err)
 		}
 		defer d.browser.Stop()
 		log.Printf("[浏览器] SSE 服务已启动: port=%d, id=%s", d.config.BrowserPort, d.config.BrowserID)
+	}
+
+	// 如果 browser bridge 由 Manager 注入，绑定 daemon 引用并发送注册
+	if d.browser != nil && d.config.BrowserID == "" {
+		d.browser.daemon = d
+		defer func() { d.browser.daemon = nil }()
+		if d.browser.isConnected() {
+			d.sendBrowserRegistration(d.browser.browserID, d.browser.description, true)
+		}
 	}
 
 	// 初始化 lastPong
