@@ -42,8 +42,9 @@ type Manager struct {
 
 	configStore *config.Store
 
-	cancel context.CancelFunc
-	done   chan struct{}
+	cancel    context.CancelFunc
+	done      chan struct{}
+	restartMu sync.Mutex // 防止并发 Restart
 }
 
 // NewManager 创建 Daemon 管理器
@@ -56,6 +57,9 @@ func NewManager(store *config.Store) *Manager {
 
 // Start 启动 Daemon（在后台 goroutine 运行重连循环）
 func (m *Manager) Start(ctx context.Context) {
+	m.restartMu.Lock()
+	defer m.restartMu.Unlock()
+
 	m.mu.Lock()
 	if m.cancel != nil {
 		m.mu.Unlock()
@@ -74,6 +78,32 @@ func (m *Manager) Start(ctx context.Context) {
 
 // Stop 停止 Daemon
 func (m *Manager) Stop() {
+	m.restartMu.Lock()
+	defer m.restartMu.Unlock()
+	m.stop()
+}
+
+// Restart 重启 Daemon（用新配置）
+func (m *Manager) Restart(ctx context.Context) {
+	m.restartMu.Lock()
+	defer m.restartMu.Unlock()
+
+	// 先停
+	m.stop()
+	// 再启
+	m.mu.Lock()
+	daemonCtx, cancel := context.WithCancel(ctx)
+	m.cancel = cancel
+	m.done = make(chan struct{})
+	m.reconnects = 0
+	m.lastError = ""
+	m.mu.Unlock()
+
+	go m.run(daemonCtx)
+}
+
+// stop 内部停止（不加 restartMu）
+func (m *Manager) stop() {
 	m.mu.Lock()
 	cancel := m.cancel
 	done := m.done
@@ -91,12 +121,6 @@ func (m *Manager) Stop() {
 	m.done = nil
 	m.state = StateStopped
 	m.mu.Unlock()
-}
-
-// Restart 重启 Daemon（用新配置）
-func (m *Manager) Restart(ctx context.Context) {
-	m.Stop()
-	m.Start(ctx)
 }
 
 // Status 返回当前状态快照
