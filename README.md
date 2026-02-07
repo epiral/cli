@@ -13,9 +13,9 @@
 
 ---
 
-几个参数，你的机器就成了 [Epiral Agent](https://github.com/epiral/agent) 的延伸。工作站、VPS、Docker 沙箱——Agent 不关心是什么，只看到可用资源。
+一个二进制，你的机器就成了 [Epiral Agent](https://github.com/epiral/agent) 的延伸。工作站、VPS、Docker 沙箱——Agent 不关心是什么，只看到可用资源。
 
-一个进程同时注册两种资源：**Computer**（shell + 文件）和 **Browser**（网页自动化，通过 [bb-browser](https://github.com/yan5xu/bb-browser) Chrome 扩展）。
+一个进程同时注册两种资源：**Computer**（shell + 文件）和 **Browser**（网页自动化，通过 [bb-browser](https://github.com/yan5xu/bb-browser) Chrome 扩展）。内置 Web 管理面板，配置、日志、状态一目了然。
 
 ```
                       Epiral Agent
@@ -35,6 +35,7 @@
    │                  │           │                  │
    │  Computer ✓      │           │  Computer ✓      │
    │  Browser  ✓      │           │                  │
+   │  Web UI :19800   │           │  Web UI :19800   │
    │    ↕ SSE         │           └─────────────────┘
    │  Chrome 扩展     │
    └─────────────────┘
@@ -67,7 +68,19 @@ cd cli && make build
 # 二进制文件在 ./bin/epiral
 ```
 
-### 运行
+### 运行（推荐：Web 管理面板）
+
+```bash
+# 启动 Web 管理面板，在浏览器中完成配置
+./bin/epiral start
+
+# 指定配置文件和端口（多实例场景）
+./bin/epiral start --config ~/.epiral/dev.yaml --port 19802
+```
+
+打开 `http://localhost:19800`，在 Config 页面填写 Agent 地址和 Computer/Browser ID，点击 Save & Restart 即可。
+
+### 运行（直连模式）
 
 ```bash
 # 只注册电脑（shell + 文件操作）
@@ -85,18 +98,46 @@ cd cli && make build
   --paths /home/me/projects
 ```
 
-连上就能用：
+## Web 管理面板
 
+`epiral start` 启动内嵌的 Web 管理面板（默认端口 19800），提供：
+
+| 页面 | 功能 |
+|------|------|
+| **Dashboard** | 连接状态、Computer/Browser 信息、在线时长、重连次数 |
+| **Config** | 可视化配置 Agent/Computer/Browser，Save & Restart 一键生效 |
+| **Logs** | 实时日志流（SSE），分级显示，支持滚动和暂停 |
+
+配置持久化在 `~/.epiral/config.yaml`，修改后自动重启 Daemon，无需手动操作。
+
+### 多实例
+
+同一台机器可以运行多个 CLI 实例（如同时连 dev 和 prod Agent）：
+
+```bash
+# Dev 实例
+./bin/epiral start --config ~/.epiral/dev.yaml --port 19800
+
+# Prod 实例
+./bin/epiral start --config ~/.epiral/prod.yaml --port 19801
 ```
-$ ./bin/epiral --agent http://192.168.1.100:8002 --computer-id my-pc \
-    --browser-id my-chrome --browser-port 19824
-2026/02/06 19:40:54 [系统] Epiral CLI 启动 (v0.2.0): computer=my-pc, browser=my-chrome (port 19824)
-2026/02/06 19:40:55 [连接] 已注册电脑: my-pc (darwin/arm64)
-2026/02/06 19:40:55 [浏览器] SSE 服务已启动: port=19824, id=my-chrome
-2026/02/06 19:40:55 [连接] 等待 Agent 下发命令...
-```
+
+每个实例有独立的配置文件、Web 端口和 Browser SSE 端口。
 
 ## 用法
+
+### `epiral start`（推荐）
+
+```
+epiral start [flags]
+```
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--config` | `~/.epiral/config.yaml` | 配置文件路径 |
+| `--port` | 19800 | Web 管理面板端口 |
+
+### `epiral`（直连模式）
 
 ```
 epiral [flags]
@@ -128,7 +169,7 @@ epiral [flags]
 
 ### Browser Bridge
 
-指定 `--browser-id` 后，CLI 会启动一个内嵌 HTTP 服务，桥接 Chrome 扩展（[bb-browser](https://github.com/yan5xu/bb-browser)）：
+指定 `--browser-id`（或在 Web 面板中配置 Browser ID）后，CLI 会启动一个内嵌 HTTP 服务，桥接 Chrome 扩展（[bb-browser](https://github.com/yan5xu/bb-browser)）：
 
 | 端点 | 说明 |
 |------|------|
@@ -185,25 +226,37 @@ Pong 超时:  10s 未收到 → 断开 → 重连
 ```
 epiral-cli/
 ├── cmd/epiral/
-│   └── main.go              # 入口：参数、信号处理、重连循环
-├── internal/daemon/
-│   ├── daemon.go             # 连接、注册、心跳、消息分发
-│   ├── exec.go               # Shell 流式执行
-│   ├── fileops.go            # 文件读/写/编辑
-│   └── browser.go            # Browser Bridge: SSE 服务 + 命令转发
+│   └── main.go              # 入口：子命令分发、信号处理
+├── internal/
+│   ├── config/
+│   │   └── config.go         # YAML 配置加载/保存/Store
+│   ├── daemon/
+│   │   ├── daemon.go          # 连接、注册、心跳、消息分发
+│   │   ├── manager.go         # Daemon 生命周期管理（启停重启）
+│   │   ├── exec.go            # Shell 流式执行
+│   │   ├── fileops.go         # 文件读/写/编辑
+│   │   └── browser.go         # Browser Bridge: SSE 服务 + 命令转发
+│   ├── logger/
+│   │   └── logger.go          # Ring buffer 日志 + SSE 订阅
+│   └── webserver/
+│       └── server.go          # Web 管理面板 (REST API + embed SPA)
+├── web/                       # React + Vite + Tailwind 前端源码
 ├── proto/epiral/v1/
-│   └── epiral.proto          # 协议定义
-├── gen/                      # 生成的 protobuf + Connect RPC 代码
-├── Makefile                  # build · generate · lint · check
-└── .golangci.yml             # 14 个 linter
+│   └── epiral.proto           # 协议定义
+├── gen/                       # 生成的 protobuf + Connect RPC 代码
+├── Makefile                   # build · web · generate · lint · check
+└── .golangci.yml              # 14 个 linter
 ```
 
-~1100 行手写 Go 代码，其余是生成的。
+~2000 行手写 Go 代码，其余是生成的。
 
 ## 开发
 
 ```bash
-make build      # 编译到 ./bin/epiral
+make build      # 完整构建（前端 + Go）
+make build-go   # 仅构建 Go（使用已有的 dist）
+make web        # 仅构建前端
+make dev        # 前端开发模式（vite dev server）
 make check      # 格式化 + lint + 编译（提交前必跑）
 make generate   # 重新生成 protobuf 代码（需要 buf）
 make clean      # 清理构建产物
@@ -212,6 +265,7 @@ make clean      # 清理构建产物
 ### 依赖
 
 - Go 1.25+
+- Node.js 22+ / pnpm — 前端构建
 - [buf](https://buf.build/) — protobuf 代码生成
 - [golangci-lint](https://golangci-lint.run/) — lint
 
@@ -219,6 +273,9 @@ make clean      # 清理构建产物
 
 - [x] Computer：shell 执行 + 文件操作
 - [x] Browser Bridge（SSE 桥接 Chrome 扩展）
+- [x] Web 管理面板（Dashboard / Config / Logs）
+- [x] YAML 配置持久化
+- [x] 多实例支持（`--config` + `--port`）
 - [ ] 持久化 Shell 会话 (shell pool)
 - [ ] mTLS / token 认证
 - [ ] systemd / launchd 服务文件
