@@ -31,7 +31,7 @@
           │                                 │
    ┌──────┴──────────┐           ┌──────────┴──────┐
    │  Epiral CLI      │           │  Epiral CLI      │
-   │  my-pc         │           │  homelab         │
+    │  my-pc           │           │  homelab         │
    │                  │           │                  │
    │  Computer ✓      │           │  Computer ✓      │
    │  Browser  ✓      │           │                  │

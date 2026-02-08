@@ -45,7 +45,7 @@ message Registration {
 // 浏览器上线/下线通知
 message BrowserRegistration {
   string browser_id  = 1;  // --browser-id "my-chrome"
-  string description = 2;  // --browser-desc "My-PC 上的 Chrome"
+  string description = 2;  // --browser-desc "My Chrome Browser"
   bool   online      = 3;  // true=插件已连接 SSE, false=插件断开
 }
 

@@ -1,4 +1,6 @@
 bin/
+release/
+/epiral
 *.exe
 *.dll
 *.so

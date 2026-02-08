@@ -31,7 +31,7 @@ One process registers two resource types: **Computer** (shell + files) and **Bro
           │                                 │
    ┌──────┴──────────┐           ┌──────────┴──────┐
    │  Epiral CLI      │           │  Epiral CLI      │
-   │  my-pc         │           │  homelab         │
+    │  my-pc           │           │  homelab         │
    │                  │           │                  │
    │  Computer ✓      │           │  Computer ✓      │
    │  Browser  ✓      │           │                  │

@@ -7,12 +7,11 @@
 package epiralv1
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -307,7 +306,7 @@ func (x *Registration) GetToken() string {
 type BrowserRegistration struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	BrowserId     string                 `protobuf:"bytes,1,opt,name=browser_id,json=browserId,proto3" json:"browser_id,omitempty"` // --browser-id "my-chrome"
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`              // --browser-desc "My-PC 上的 Chrome"
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`              // --browser-desc "My Chrome Browser"
 	Online        bool                   `protobuf:"varint,3,opt,name=online,proto3" json:"online,omitempty"`                       // true=插件已连接 SSE, false=插件断开
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
