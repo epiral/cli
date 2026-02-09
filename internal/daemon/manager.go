@@ -29,7 +29,6 @@ type Status struct {
 	Reconnects  int             `json:"reconnects"`
 	LastError   string          `json:"lastError,omitempty"`
 	Computer    string          `json:"computer,omitempty"`
-	Browser     string          `json:"browser,omitempty"`
 }
 
 // Manager 管理 Daemon 的生命周期（启动、重连、停止、重启）
@@ -134,7 +133,6 @@ func (m *Manager) Status() Status {
 		Reconnects: m.reconnects,
 		LastError:  m.lastError,
 		Computer:   cfg.Computer.ID,
-		Browser:    cfg.Browser.ID,
 	}
 
 	if m.state == StateConnected && !m.connectedAt.IsZero() {
@@ -154,19 +152,6 @@ func (m *Manager) run(ctx context.Context) {
 		close(m.done)
 		m.mu.Unlock()
 	}()
-
-	// BrowserBridge 在重连循环外管理，避免每次重连都 bind/release 端口
-	var browser *BrowserBridge
-	cfg := m.configStore.Get()
-	if cfg.Browser.ID != "" {
-		browser = NewBrowserBridge(cfg.Browser.ID, cfg.Browser.Description, cfg.Browser.Port, nil)
-		if err := browser.Start(ctx); err != nil {
-			log.Printf("[浏览器] SSE 服务启动失败: %v", err)
-		} else {
-			log.Printf("[浏览器] SSE 服务已启动: port=%d, id=%s", cfg.Browser.Port, cfg.Browser.ID)
-		}
-		defer browser.Stop()
-	}
 
 	backoff := time.Second
 	const maxBackoff = 30 * time.Second
@@ -190,12 +175,7 @@ func (m *Manager) run(ctx context.Context) {
 		}
 
 		daemonCfg := buildDaemonConfig(&cfg)
-		// 如果 browser bridge 由 Manager 管理，daemon 不再自行启动
-		daemonCfg.BrowserID = ""
 		d := New(&daemonCfg)
-
-		// 注入外部 browser bridge
-		d.browser = browser
 
 		// 设置连接成功回调
 		d.OnConnected = func() {
@@ -263,9 +243,6 @@ func buildDaemonConfig(cfg *config.Config) Config {
 		AgentAddr:    cfg.Agent.Address,
 		ComputerID:   cfg.Computer.ID,
 		ComputerDesc: cfg.Computer.Description,
-		BrowserID:    cfg.Browser.ID,
-		BrowserDesc:  cfg.Browser.Description,
-		BrowserPort:  cfg.Browser.Port,
 		AllowedPaths: cfg.Computer.AllowedPaths,
 		Token:        cfg.Agent.Token,
 	}

@@ -96,14 +96,7 @@ func startCmd(args []string) {
 
 	// 如果已配置，启动 Daemon
 	if cfg.IsConfigured() {
-		var modes []string
-		if cfg.Computer.ID != "" {
-			modes = append(modes, fmt.Sprintf("computer=%s", cfg.Computer.ID))
-		}
-		if cfg.Browser.ID != "" {
-			modes = append(modes, fmt.Sprintf("browser=%s", cfg.Browser.ID))
-		}
-		log.Printf("[系统] 启动连接: %s → %s", strings.Join(modes, ", "), cfg.Agent.Address)
+		log.Printf("[系统] 启动连接: computer=%s → %s", cfg.Computer.ID, cfg.Agent.Address)
 		manager.Start(ctx)
 	} else {
 		log.Println("[系统] 未配置连接信息，请在 Web 面板中完成配置")
@@ -120,9 +113,6 @@ func legacyCmd() {
 	agentAddr := flag.String("agent", "", "Agent 地址 (如 http://localhost:50051)")
 	computerID := flag.String("computer-id", "", "电脑 ID (如 my-pc)")
 	computerDesc := flag.String("computer-desc", "", "电脑描述")
-	browserID := flag.String("browser-id", "", "浏览器 ID (如 my-chrome)")
-	browserDesc := flag.String("browser-desc", "", "浏览器描述")
-	browserPort := flag.Int("browser-port", 19824, "浏览器 SSE 服务端口")
 	allowedPaths := flag.String("paths", "", "允许访问的路径，逗号分隔")
 	token := flag.String("token", "", "认证 token")
 	flag.Parse()
@@ -137,8 +127,8 @@ func legacyCmd() {
 		flag.Usage()
 		os.Exit(1)
 	}
-	if *computerID == "" && *browserID == "" {
-		fmt.Fprintln(os.Stderr, "错误: 必须指定 --computer-id 或 --browser-id（至少一个）")
+	if *computerID == "" {
+		fmt.Fprintln(os.Stderr, "错误: 必须指定 --computer-id")
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -154,9 +144,6 @@ func legacyCmd() {
 		AgentAddr:    *agentAddr,
 		ComputerID:   *computerID,
 		ComputerDesc: *computerDesc,
-		BrowserID:    *browserID,
-		BrowserDesc:  *browserDesc,
-		BrowserPort:  *browserPort,
 		AllowedPaths: paths,
 		Token:        *token,
 	}
@@ -173,15 +160,7 @@ func legacyCmd() {
 
 	d := daemon.New(&cfg)
 
-	// 启动日志
-	var modes []string
-	if cfg.ComputerID != "" {
-		modes = append(modes, fmt.Sprintf("computer=%s", cfg.ComputerID))
-	}
-	if cfg.BrowserID != "" {
-		modes = append(modes, fmt.Sprintf("browser=%s (port %d)", cfg.BrowserID, cfg.BrowserPort))
-	}
-	log.Printf("[系统] Epiral CLI 启动 (v%s): %s, agent=%s", version, strings.Join(modes, ", "), cfg.AgentAddr)
+	log.Printf("[系统] Epiral CLI 启动 (v%s): computer=%s, agent=%s", version, cfg.ComputerID, cfg.AgentAddr)
 
 	// 自动重连循环
 	backoff := time.Second

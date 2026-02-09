@@ -89,15 +89,6 @@ export default function Dashboard() {
           )}
         </Card>
 
-        {/* Browser */}
-        <Card title="Browser">
-          {daemon.browser ? (
-            <p className="text-zinc-200 font-mono">{daemon.browser}</p>
-          ) : (
-            <p className="text-zinc-500">-</p>
-          )}
-        </Card>
-
         {/* 重连次数 */}
         <Card title="Reconnects">
           <p className="text-2xl font-mono text-zinc-200">
