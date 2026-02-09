@@ -15,7 +15,6 @@ import (
 type Config struct {
 	Agent    AgentConfig    `yaml:"agent" json:"agent"`
 	Computer ComputerConfig `yaml:"computer" json:"computer"`
-	Browser  BrowserConfig  `yaml:"browser" json:"browser"`
 	Web      WebConfig      `yaml:"web" json:"web"`
 }
 
@@ -32,13 +31,6 @@ type ComputerConfig struct {
 	AllowedPaths []string `yaml:"allowed_paths" json:"allowedPaths"`
 }
 
-// BrowserConfig 浏览器桥接配置
-type BrowserConfig struct {
-	ID          string `yaml:"id" json:"id"`
-	Description string `yaml:"description" json:"description"`
-	Port        int    `yaml:"port" json:"port"`
-}
-
 // WebConfig Web 管理面板配置
 type WebConfig struct {
 	Port int `yaml:"port" json:"port"`
@@ -46,7 +38,7 @@ type WebConfig struct {
 
 // IsConfigured 返回是否已配置最低限度的连接信息
 func (c *Config) IsConfigured() bool {
-	return c.Agent.Address != "" && (c.Computer.ID != "" || c.Browser.ID != "")
+	return c.Agent.Address != "" && c.Computer.ID != ""
 }
 
 // DefaultConfigDir 返回 ~/.epiral
@@ -70,8 +62,7 @@ func DefaultConfigPath() (string, error) {
 // Default 返回带默认值的配置
 func Default() *Config {
 	return &Config{
-		Browser: BrowserConfig{Port: 19824},
-		Web:     WebConfig{Port: 19800},
+		Web: WebConfig{Port: 19800},
 	}
 }
 
@@ -92,9 +83,6 @@ func Load(path string) (*Config, error) {
 	}
 
 	// 确保默认值
-	if cfg.Browser.Port == 0 {
-		cfg.Browser.Port = 19824
-	}
 	if cfg.Web.Port == 0 {
 		cfg.Web.Port = 19800
 	}

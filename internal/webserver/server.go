@@ -114,9 +114,6 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 确保默认值
-	if cfg.Browser.Port == 0 {
-		cfg.Browser.Port = 19824
-	}
 	if cfg.Web.Port == 0 {
 		cfg.Web.Port = s.port
 	}

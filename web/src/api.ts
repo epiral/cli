@@ -7,7 +7,6 @@ export interface DaemonStatus {
   reconnects: number;
   lastError?: string;
   computer?: string;
-  browser?: string;
 }
 
 export interface StatusResponse {
@@ -19,7 +18,6 @@ export interface StatusResponse {
 export interface Config {
   agent: { address: string; token: string };
   computer: { id: string; description: string; allowedPaths: string[] };
-  browser: { id: string; description: string; port: number };
   web: { port: number };
 }
 

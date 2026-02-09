@@ -26,11 +26,8 @@ import (
 // Config 是 Daemon 的配置
 type Config struct {
 	AgentAddr    string   // Agent 地址 (如 http://localhost:50051)
-	ComputerID   string   // 电脑 ID（空 = 不注册电脑）
+	ComputerID   string   // 电脑 ID
 	ComputerDesc string   // 电脑描述
-	BrowserID    string   // 浏览器 ID（空 = 不启用浏览器）
-	BrowserDesc  string   // 浏览器描述
-	BrowserPort  int      // 浏览器 SSE 服务端口（默认 19824）
 	AllowedPaths []string // 允许访问的路径
 	Token        string   // 认证 token
 }
@@ -42,8 +39,7 @@ type Daemon struct {
 	sendMu      sync.Mutex // 保护 stream.Send 的并发安全
 	lastPong    time.Time
 	pongMu      sync.Mutex
-	browser     *BrowserBridge // 浏览器桥接（nil = 未启用）
-	OnConnected func()         // 连接成功回调（Manager 使用）
+	OnConnected func() // 连接成功回调（Manager 使用）
 }
 
 // New 创建一个新的 Daemon
@@ -86,26 +82,6 @@ func (d *Daemon) Run(ctx context.Context) error {
 			return fmt.Errorf("发送 Registration 失败: %w", err)
 		}
 		log.Printf("[连接] 已注册电脑: %s (%s/%s)", d.config.ComputerID, reg.Os, reg.Arch)
-	}
-
-	// 条件注册: Browser
-	if d.config.BrowserID != "" {
-		// Manager 模式下 BrowserID 被清空，不会走这里
-		d.browser = NewBrowserBridge(d.config.BrowserID, d.config.BrowserDesc, d.config.BrowserPort, d)
-		if err := d.browser.Start(ctx); err != nil {
-			return fmt.Errorf("启动浏览器 SSE 服务失败: %w", err)
-		}
-		defer d.browser.Stop()
-		log.Printf("[浏览器] SSE 服务已启动: port=%d, id=%s", d.config.BrowserPort, d.config.BrowserID)
-	}
-
-	// 如果 browser bridge 由 Manager 注入，绑定 daemon 引用并发送注册
-	if d.browser != nil && d.config.BrowserID == "" {
-		d.browser.daemon = d
-		defer func() { d.browser.daemon = nil }()
-		if d.browser.isConnected() {
-			d.sendBrowserRegistration(d.browser.browserID, d.browser.description, true)
-		}
 	}
 
 	// 初始化 lastPong
@@ -162,12 +138,6 @@ func (d *Daemon) handleMessage(ctx context.Context, msg *v1.ConnectResponse) {
 			return
 		}
 		d.handleEditFile(msg.RequestId, payload.EditFile)
-	case *v1.ConnectResponse_BrowserExec:
-		if d.browser == nil {
-			log.Printf("[连接] 收到 BrowserExec 但未启用浏览器功能，忽略")
-			return
-		}
-		d.browser.HandleBrowserExec(msg.RequestId, payload.BrowserExec)
 	case *v1.ConnectResponse_Pong:
 		d.pongMu.Lock()
 		d.lastPong = time.Now()
@@ -182,37 +152,6 @@ func (d *Daemon) send(msg *v1.ConnectRequest) error {
 	d.sendMu.Lock()
 	defer d.sendMu.Unlock()
 	return d.stream.Send(msg)
-}
-
-// sendBrowserRegistration 发送浏览器注册/状态变更
-func (d *Daemon) sendBrowserRegistration(browserID, description string, online bool) {
-	if err := d.send(&v1.ConnectRequest{
-		Payload: &v1.ConnectRequest_BrowserRegistration{
-			BrowserRegistration: &v1.BrowserRegistration{
-				BrowserId:   browserID,
-				Description: description,
-				Online:      online,
-			},
-		},
-	}); err != nil {
-		log.Printf("[浏览器] 发送 BrowserRegistration 失败: %v", err)
-	}
-}
-
-// sendBrowserExecOutput 发送浏览器命令执行结果
-func (d *Daemon) sendBrowserExecOutput(requestID, resultJSON, errMsg string) {
-	if err := d.send(&v1.ConnectRequest{
-		RequestId: requestID,
-		Payload: &v1.ConnectRequest_BrowserExecOutput{
-			BrowserExecOutput: &v1.BrowserExecOutput{
-				ResultJson: resultJSON,
-				Error:      errMsg,
-				Done:       true,
-			},
-		},
-	}); err != nil {
-		log.Printf("[浏览器] 发送 BrowserExecOutput 失败: %v", err)
-	}
 }
 
 // buildRegistration 构建电脑注册信息

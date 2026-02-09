@@ -18,7 +18,13 @@ export default function Config() {
     setSaving(true);
     setMessage(null);
     try {
-      await putConfig(config);
+      // 保存时清理空行和空格
+      const cleaned = structuredClone(config);
+      cleaned.computer.allowedPaths = (cleaned.computer.allowedPaths ?? [])
+        .map((s) => s.trim())
+        .filter(Boolean);
+      await putConfig(cleaned);
+      setConfig(cleaned);
       setMessage({ type: "ok", text: "saved! daemon restarting..." });
       setTimeout(() => setMessage(null), 3000);
     } catch {
@@ -108,38 +114,12 @@ export default function Config() {
             onChange={(e) =>
               update(
                 "computer.allowedPaths",
-                e.target.value
-                  .split("\n")
-                  .map((s) => s.trim())
-                  .filter(Boolean)
+                e.target.value.split("\n")
               )
             }
           />
           <p className="text-xs text-zinc-500 mt-1">one path per line</p>
         </div>
-      </Section>
-
-      {/* Browser */}
-      <Section title="Browser">
-        <Field
-          label="ID"
-          placeholder="my-chrome (leave empty to disable)"
-          value={config.browser.id}
-          onChange={(v) => update("browser.id", v)}
-        />
-        <Field
-          label="Description"
-          placeholder="optional"
-          value={config.browser.description}
-          onChange={(v) => update("browser.description", v)}
-        />
-        <Field
-          label="SSE Port"
-          placeholder="19824"
-          value={String(config.browser.port || "")}
-          onChange={(v) => update("browser.port", parseInt(v) || 0)}
-          type="number"
-        />
       </Section>
 
       {/* Web */}
